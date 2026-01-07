@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #22c55e;
+  --secondary-color: #eab308;
+  --cancelled-color: #ef4444;
+  --completed-color: #9ca3af;
+}
+
+body {
+  @apply bg-gray-100 text-gray-900;
+}
+
+.order-primary { @apply bg-green-500 text-white; }
+.order-secondary { @apply bg-yellow-500 text-white; }
+.order-cancelled { @apply bg-red-500 text-white; }
+.order-completed { @apply bg-gray-400 text-white; }
+
+.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+.scrollbar-thin::-webkit-scrollbar-track { @apply bg-gray-200 rounded; }
+.scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-gray-400 rounded hover:bg-gray-500; }
