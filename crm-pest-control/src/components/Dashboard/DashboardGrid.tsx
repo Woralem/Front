@@ -1,3 +1,4 @@
+// src/components/Dashboard/DashboardGrid.tsx
 'use client';
 import React from 'react';
 import { Order } from '@/types';
@@ -18,7 +19,12 @@ export default function DashboardGrid({ dates, orders, onOrderClick, onSlotClick
     return `${day}.${month}`;
   };
 
-  const formatDateISO = (date: Date) => date.toISOString().split('T')[0];
+  const formatDateISO = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const getOrdersForSlot = (date: Date, hour: number) => {
     const dateStr = formatDateISO(date);
@@ -56,11 +62,14 @@ export default function DashboardGrid({ dates, orders, onOrderClick, onSlotClick
               </td>
               {dates.map((date, i) => {
                 const slotOrders = getOrdersForSlot(date, hour);
+                const dateStr = formatDateISO(date);
+                const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+                
                 return (
                   <td
                     key={i}
                     className="border p-1 align-top hover:bg-gray-50 cursor-pointer"
-                    onClick={() => slotOrders.length === 0 && onSlotClick(formatDateISO(date), `${hour.toString().padStart(2, '0')}:00`)}
+                    onClick={() => slotOrders.length === 0 && onSlotClick(dateStr, timeStr)}
                   >
                     {slotOrders.map((order) => (
                       <div

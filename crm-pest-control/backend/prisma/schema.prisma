@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Order {
+  id              String   @id @default(uuid())
+  orderType       String   // 'primary' | 'secondary'
+  clientName      String
+  pest            String
+  objectType      String
+  volume          String?
+  address         String
+  date            String
+  time            String
+  basePrice       Float    @default(0)
+  phones          String   // JSON array as string
+  clientType      String   // 'individual' | 'legal'
+  comment         String?
+  manager         String
+  status          String   @default("in_progress") // 'in_progress' | 'completed' | 'cancelled'
+  
+  // Completed order fields
+  finalAmount     Float?
+  masterPercent   Float?
+  masterIncome    Float?
+  cashDesk        Float?
+  repeatDate      String?
+  repeatTime      String?
+  masterName      String?
+  masterContact   String?
+  completionComment String?
+  contractPhoto   String?
+  
+  // Cancelled order fields
+  cancelReason    String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([date])
+  @@index([status])
+  @@index([clientName])
+}
+
+model DailyStats {
+  id        String   @id @default(uuid())
+  date      String   @unique
+  adSpend   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MonthlyPlan {
+  id             String @id @default(uuid())
+  year           Int
+  month          Int
+  primaryCount   Int    @default(30)
+  secondaryCount Int    @default(15)
+  primarySum     Float  @default(800000)
+  secondarySum   Float  @default(150000)
+  totalSum       Float  @default(950000)
+  cashDesk       Float  @default(600000)
+  adSpend        Float  @default(300000)
+  netProfit      Float  @default(300000)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, month])
+}

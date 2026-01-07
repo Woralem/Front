@@ -1,16 +1,16 @@
 'use client';
+
 import React, { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import Modal from '@/components/UI/Modal';
 import Button from '@/components/UI/Button';
 import Input from '@/components/UI/Input';
 import Select from '@/components/UI/Select';
 import { useOrderStore } from '@/store/orderStore';
-import { Order } from '@/types';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   selectedDate?: string;
   selectedTime?: string;
 }
@@ -20,9 +20,17 @@ const OBJECTS = ['Квартира', 'Дом', 'Офис', 'Склад', 'Рес
 const MANAGERS = ['Анастасия', 'Мария', 'Ольга', 'Екатерина'];
 const TIMES = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
 
-export default function CreateOrderModal({ isOpen, onClose, selectedDate, selectedTime }: Props) {
-  const { addOrder } = useOrderStore();
+export default function CreateOrderModal({ 
+  isOpen, 
+  onClose, 
+  onSuccess,
+  selectedDate, 
+  selectedTime 
+}: Props) {
+  const { createOrder, isLoading } = useOrderStore();
   const [phones, setPhones] = useState<string[]>(['']);
+  const [error, setError] = useState<string | null>(null);
+  
   const [form, setForm] = useState({
     orderType: 'primary' as 'primary' | 'secondary',
     clientName: '',
@@ -38,56 +46,90 @@ export default function CreateOrderModal({ isOpen, onClose, selectedDate, select
     manager: 'Анастасия',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Обновляем дату/время при изменении props
+  React.useEffect(() => {
+    if (selectedDate) setForm(f => ({ ...f, date: selectedDate }));
+    if (selectedTime) setForm(f => ({ ...f, time: selectedTime }));
+  }, [selectedDate, selectedTime]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const order: Order = {
-      id: uuidv4(),
-      ...form,
-      phones: phones.filter(p => p.trim()),
-      status: 'in_progress',
-      createdAt: new Date().toISOString(),
-    };
-    addOrder(order);
-    onClose();
-    setForm({
-      orderType: 'primary',
-      clientName: '',
-      pest: 'Клопы',
-      objectType: 'Квартира',
-      volume: '',
-      address: '',
-      date: new Date().toISOString().split('T')[0],
-      time: '09:00',
-      basePrice: 0,
-      clientType: 'individual',
-      comment: '',
-      manager: 'Анастасия',
-    });
-    setPhones(['']);
+    setError(null);
+
+    if (!form.clientName.trim()) {
+      setError('Введите имя клиента');
+      return;
+    }
+
+    if (!form.address.trim()) {
+      setError('Введите адрес');
+      return;
+    }
+
+    try {
+      await createOrder({
+        ...form,
+        phones: phones.filter(p => p.trim()),
+      });
+      
+      // Reset form
+      setForm({
+        orderType: 'primary',
+        clientName: '',
+        pest: 'Клопы',
+        objectType: 'Квартира',
+        volume: '',
+        address: '',
+        date: new Date().toISOString().split('T')[0],
+        time: '09:00',
+        basePrice: 0,
+        clientType: 'individual',
+        comment: '',
+        manager: 'Анастасия',
+      });
+      setPhones(['']);
+      
+      onSuccess?.();
+    } catch (err) {
+      setError((err as Error).message);
+    }
   };
 
   const addPhone = () => setPhones([...phones, '']);
+  
   const updatePhone = (index: number, value: string) => {
     const newPhones = [...phones];
     newPhones[index] = value;
     setPhones(newPhones);
   };
 
+  const removePhone = (index: number) => {
+    if (phones.length > 1) {
+      setPhones(phones.filter((_, i) => i !== index));
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Создать заявку" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <Select
             label="Тип заказа"
             value={form.orderType}
-            onChange={(e) => setForm({ ...form, orderType: e.target.value as any })}
+            onChange={(e) => setForm({ ...form, orderType: e.target.value as 'primary' | 'secondary' })}
             options={[
               { value: 'primary', label: '🟢 Первичный' },
               { value: 'secondary', label: '🟡 Повторный' },
             ]}
           />
           <Input
-            label="Имя клиента"
+            label="Имя клиента *"
             value={form.clientName}
             onChange={(e) => setForm({ ...form, clientName: e.target.value })}
             required
@@ -126,13 +168,13 @@ export default function CreateOrderModal({ isOpen, onClose, selectedDate, select
           <Input
             label="Цена базы"
             type="number"
-            value={form.basePrice}
+            value={form.basePrice || ''}
             onChange={(e) => setForm({ ...form, basePrice: Number(e.target.value) })}
           />
           <Select
             label="Тип клиента"
             value={form.clientType}
-            onChange={(e) => setForm({ ...form, clientType: e.target.value as any })}
+            onChange={(e) => setForm({ ...form, clientType: e.target.value as 'individual' | 'legal' })}
             options={[
               { value: 'individual', label: 'Физ. лицо' },
               { value: 'legal', label: 'Юр. лицо' },
@@ -145,12 +187,15 @@ export default function CreateOrderModal({ isOpen, onClose, selectedDate, select
             options={MANAGERS.map(m => ({ value: m, label: m }))}
           />
         </div>
+
         <Input
-          label="Адрес"
+          label="Адрес *"
           value={form.address}
           onChange={(e) => setForm({ ...form, address: e.target.value })}
           placeholder="Москва, ул Мира 12, под 1, этаж 3, кв 65"
+          required
         />
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Телефоны</label>
           {phones.map((phone, index) => (
@@ -162,12 +207,28 @@ export default function CreateOrderModal({ isOpen, onClose, selectedDate, select
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
                 placeholder="89675456789"
               />
+              {phones.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removePhone(index)}
+                  className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                >
+                  ✕
+                </button>
+              )}
               {index === phones.length - 1 && (
-                <button type="button" onClick={addPhone} className="px-3 py-2 bg-gray-200 rounded-lg">+</button>
+                <button
+                  type="button"
+                  onClick={addPhone}
+                  className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  +
+                </button>
               )}
             </div>
           ))}
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий</label>
           <textarea
@@ -175,11 +236,17 @@ export default function CreateOrderModal({ isOpen, onClose, selectedDate, select
             onChange={(e) => setForm({ ...form, comment: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             rows={3}
+            placeholder="Дополнительная информация..."
           />
         </div>
-        <div className="flex justify-end gap-3 pt-4">
-          <Button type="button" variant="secondary" onClick={onClose}>Отмена</Button>
-          <Button type="submit" variant="success">Создать заказ</Button>
+
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button type="submit" variant="success" disabled={isLoading}>
+            {isLoading ? 'Создание...' : 'Создать заказ'}
+          </Button>
         </div>
       </form>
     </Modal>

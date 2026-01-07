@@ -1,61 +1,133 @@
+// src/store/orderStore.ts
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { Order, DailyStats, MonthlyPlan } from '@/types';
+import api, { Order, CreateOrderData, UpdateOrderData, StatisticsData } from '@/lib/api';
 
 interface OrderStore {
+  // State
   orders: Order[];
-  dailyAdSpend: Record<string, number>;
-  monthlyPlan: MonthlyPlan;
-  addOrder: (order: Order) => void;
-  updateOrder: (id: string, order: Partial<Order>) => void;
-  deleteOrder: (id: string) => void;
-  getOrdersByDate: (date: string) => Order[];
-  getOrdersByMonth: (year: number, month: number) => Order[];
-  searchOrders: (phone?: string, address?: string, date?: string) => Order[];
-  setDailyAdSpend: (date: string, amount: number) => void;
-  setMonthlyPlan: (plan: Partial<MonthlyPlan>) => void;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  fetchOrders: (year: number, month: number) => Promise<void>;
+  fetchOrdersByDate: (date: string) => Promise<void>;
+  createOrder: (data: CreateOrderData) => Promise<Order>;
+  updateOrder: (id: string, data: UpdateOrderData) => Promise<Order>;
+  deleteOrder: (id: string) => Promise<void>;
+  searchOrders: (phone?: string, address?: string, date?: string) => Promise<Order[]>;
+  
+  // Statistics
+  statistics: StatisticsData | null;
+  fetchStatistics: (year: number, month: number) => Promise<void>;
+  updateAdSpend: (date: string, amount: number) => Promise<void>;
+  
+  // Helpers
+  clearError: () => void;
 }
 
-export const useOrderStore = create<OrderStore>()(
-  persist(
-    (set, get) => ({
-      orders: [],
-      dailyAdSpend: {},
-      monthlyPlan: {
-        primaryCount: 30,
-        secondaryCount: 15,
-        primarySum: 800000,
-        secondarySum: 150000,
-        totalSum: 950000,
-        cashDesk: 600000,
-        adSpend: 300000,
-        netProfit: 300000,
-      },
-      addOrder: (order) => set((state) => ({ orders: [...state.orders, order] })),
-      updateOrder: (id, updatedOrder) =>
-        set((state) => ({
-          orders: state.orders.map((o) => (o.id === id ? { ...o, ...updatedOrder } : o)),
-        })),
-      deleteOrder: (id) =>
-        set((state) => ({ orders: state.orders.filter((o) => o.id !== id) })),
-      getOrdersByDate: (date) => get().orders.filter((o) => o.date === date),
-      getOrdersByMonth: (year, month) =>
-        get().orders.filter((o) => {
-          const d = new Date(o.date);
-          return d.getFullYear() === year && d.getMonth() === month;
-        }),
-      searchOrders: (phone, address, date) =>
-        get().orders.filter((o) => {
-          if (phone && !o.phones.some((p) => p.includes(phone))) return false;
-          if (address && !o.address.toLowerCase().includes(address.toLowerCase())) return false;
-          if (date && o.date !== date) return false;
-          return true;
-        }),
-      setDailyAdSpend: (date, amount) =>
-        set((state) => ({ dailyAdSpend: { ...state.dailyAdSpend, [date]: amount } })),
-      setMonthlyPlan: (plan) =>
-        set((state) => ({ monthlyPlan: { ...state.monthlyPlan, ...plan } })),
-    }),
-    { name: 'crm-orders' }
-  )
-);
+export const useOrderStore = create<OrderStore>((set, get) => ({
+  orders: [],
+  isLoading: false,
+  error: null,
+  statistics: null,
+
+  fetchOrders: async (year: number, month: number) => {
+    set({ isLoading: true, error: null });
+    try {
+      const orders = await api.getOrders({ 
+        year: year.toString(), 
+        month: month.toString() 
+      });
+      set({ orders, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+    }
+  },
+
+  fetchOrdersByDate: async (date: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const orders = await api.getOrders({ date });
+      set({ orders, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+    }
+  },
+
+  createOrder: async (data: CreateOrderData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const newOrder = await api.createOrder(data);
+      set((state) => ({ 
+        orders: [...state.orders, newOrder], 
+        isLoading: false 
+      }));
+      return newOrder;
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  updateOrder: async (id: string, data: UpdateOrderData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const updatedOrder = await api.updateOrder(id, data);
+      set((state) => ({
+        orders: state.orders.map((o) => (o.id === id ? updatedOrder : o)),
+        isLoading: false,
+      }));
+      return updatedOrder;
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  deleteOrder: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.deleteOrder(id);
+      set((state) => ({
+        orders: state.orders.filter((o) => o.id !== id),
+        isLoading: false,
+      }));
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  searchOrders: async (phone?: string, address?: string, date?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const orders = await api.searchOrders({ phone, address, date });
+      set({ isLoading: false });
+      return orders;
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  fetchStatistics: async (year: number, month: number) => {
+    set({ isLoading: true, error: null });
+    try {
+      const statistics = await api.getStatistics(year, month);
+      set({ statistics, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+    }
+  },
+
+  updateAdSpend: async (date: string, amount: number) => {
+    try {
+      await api.updateAdSpend(date, amount);
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
+  clearError: () => set({ error: null }),
+}));

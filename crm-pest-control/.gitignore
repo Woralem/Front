@@ -19,14 +19,6 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Local env files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env*.local
-
 # Vercel
 .vercel
 
@@ -36,6 +28,7 @@ yarn-error.log*
 *.swp
 *.swo
 *~
+*.sh
 .project
 .classpath
 .settings/
@@ -65,18 +58,12 @@ coverage/
 # Logs
 logs/
 *.log
-*.sh
 
 # Temp files
 tmp/
 temp/
 *.tmp
 *.temp
-
-# Package manager locks (выберите один)
-# yarn.lock
-# pnpm-lock.yaml
-# package-lock.json
 
 # Generated files
 collected-code.txt
@@ -88,3 +75,16 @@ collected-code.txt
 # PWA files
 public/sw.js
 public/workbox-*.js
+
+# SQLite database files
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Backend data folder (Docker mounted)
+backend/data/
+
+# Prisma local dev database
+backend/prisma/*.db
+backend/prisma/*.db-journal
