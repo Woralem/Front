@@ -2,8 +2,30 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../index';
 import { asyncHandler } from '../middleware/errorHandler';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
+
+const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+
+const deleteFileIfExists = (fileUrl: string | null | undefined) => {
+  if (!fileUrl) return;
+  
+  try {
+    const filename = fileUrl.split('/').pop();
+    if (!filename || filename === '.gitkeep') return;
+    
+    const filePath = path.join(UPLOADS_DIR, filename);
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`🗑️ Deleted old file: ${filename}`);
+    }
+  } catch (error) {
+    console.error('Error deleting file:', error);
+  }
+};
 
 // Интерфейсы для типизации
 interface OrderQuery {
@@ -183,12 +205,24 @@ router.put('/:id', asyncHandler(async (req: Request<{ id: string }, {}, UpdateOr
   const { id } = req.params;
   const updateData: Record<string, unknown> = { ...req.body };
   
-  // Convert phones array to JSON string if provided
+  const currentOrder = await prisma.order.findUnique({ where: { id } });
+  
+  if (!currentOrder) {
+    return res.status(404).json({ success: false, error: 'Order not found' });
+  }
+  
+  if (
+    updateData.contractPhoto !== undefined && 
+    currentOrder.contractPhoto && 
+    updateData.contractPhoto !== currentOrder.contractPhoto
+  ) {
+    deleteFileIfExists(currentOrder.contractPhoto);
+  }
+  
   if (updateData.phones && Array.isArray(updateData.phones)) {
     updateData.phones = JSON.stringify(updateData.phones);
   }
   
-  // Calculate master income and cash desk if completing order
   if (
     updateData.status === 'completed' && 
     typeof updateData.finalAmount === 'number' && 
@@ -203,31 +237,26 @@ router.put('/:id', asyncHandler(async (req: Request<{ id: string }, {}, UpdateOr
     data: updateData,
   });
   
-  // If repeat date is set, create a secondary order
   if (updateData.repeatDate && updateData.status === 'completed') {
-    const originalOrder = await prisma.order.findUnique({ where: { id } });
-    
-    if (originalOrder) {
-      await prisma.order.create({
-        data: {
-          id: uuidv4(),
-          orderType: 'secondary',
-          clientName: originalOrder.clientName,
-          pest: originalOrder.pest,
-          objectType: originalOrder.objectType,
-          volume: originalOrder.volume,
-          address: originalOrder.address,
-          date: updateData.repeatDate as string,
-          time: (updateData.repeatTime as string) || '09:00',
-          basePrice: originalOrder.basePrice,
-          phones: originalOrder.phones,
-          clientType: originalOrder.clientType,
-          comment: '',
-          manager: originalOrder.manager,
-          status: 'in_progress',
-        },
-      });
-    }
+    await prisma.order.create({
+      data: {
+        id: uuidv4(),
+        orderType: 'secondary',
+        clientName: currentOrder.clientName,
+        pest: currentOrder.pest,
+        objectType: currentOrder.objectType,
+        volume: currentOrder.volume,
+        address: currentOrder.address,
+        date: updateData.repeatDate as string,
+        time: (updateData.repeatTime as string) || '09:00',
+        basePrice: currentOrder.basePrice,
+        phones: currentOrder.phones,
+        clientType: currentOrder.clientType,
+        comment: '',
+        manager: currentOrder.manager,
+        status: 'in_progress',
+      },
+    });
   }
   
   res.json({ 
@@ -238,6 +267,14 @@ router.put('/:id', asyncHandler(async (req: Request<{ id: string }, {}, UpdateOr
 
 // DELETE /api/orders/:id - Удалить заказ
 router.delete('/:id', asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+  const order = await prisma.order.findUnique({
+    where: { id: req.params.id },
+  });
+  
+  if (order?.contractPhoto) {
+    deleteFileIfExists(order.contractPhoto);
+  }
+  
   await prisma.order.delete({
     where: { id: req.params.id },
   });

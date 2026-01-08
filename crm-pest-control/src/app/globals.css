@@ -1,46 +1,230 @@
-/* src/app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --primary-color: #22c55e;
-  --secondary-color: #eab308;
-  --cancelled-color: #ef4444;
-  --completed-color: #9ca3af;
+  --primary-50: #f0fdf4;
+  --primary-100: #dcfce7;
+  --primary-500: #22c55e;
+  --primary-600: #16a34a;
+  --primary-700: #15803d;
+  
+  --secondary-50: #fefce8;
+  --secondary-100: #fef9c3;
+  --secondary-500: #eab308;
+  --secondary-600: #ca8a04;
+  
+  --danger-50: #fef2f2;
+  --danger-500: #ef4444;
+  --danger-600: #dc2626;
+  
+  --gray-50: #f9fafb;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+  --gray-700: #374151;
+  --gray-800: #1f2937;
+  --gray-900: #111827;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
-body {
-  @apply bg-gray-100 text-gray-900;
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  
+  * {
+    @apply border-gray-200;
+  }
 }
 
-.order-primary { @apply bg-green-500 text-white; }
-.order-secondary { @apply bg-yellow-500 text-white; }
-.order-cancelled { @apply bg-red-500 text-white; }
-.order-completed { @apply bg-gray-400 text-white; }
-
-.scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
-.scrollbar-thin::-webkit-scrollbar-track { @apply bg-gray-200 rounded; }
-.scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-gray-400 rounded hover:bg-gray-500; }
-
-.no-spinners::-webkit-outer-spin-button,
-.no-spinners::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+@layer components {
+  /* Cards */
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100;
+  }
+  
+  .card-hover {
+    @apply card transition-all duration-200 hover:shadow-md hover:border-gray-200;
+  }
+  
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .badge-primary {
+    @apply bg-green-100 text-green-800;
+  }
+  
+  .badge-secondary {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  
+  .badge-danger {
+    @apply bg-red-100 text-red-800;
+  }
+  
+  .badge-gray {
+    @apply bg-gray-100 text-gray-800;
+  }
+  
+  /* Order cards */
+  .order-card {
+    @apply rounded-xl p-3 cursor-pointer transition-all duration-200;
+  }
+  
+  .order-primary {
+    @apply bg-gradient-to-br from-green-500 to-green-600 text-white shadow-green-500/25 shadow-lg hover:shadow-green-500/40 hover:scale-[1.02];
+  }
+  
+  .order-secondary {
+    @apply bg-gradient-to-br from-amber-400 to-amber-500 text-white shadow-amber-500/25 shadow-lg hover:shadow-amber-500/40 hover:scale-[1.02];
+  }
+  
+  .order-completed {
+    @apply bg-gradient-to-br from-gray-400 to-gray-500 text-white shadow-gray-500/25 shadow-lg hover:shadow-gray-500/40 hover:scale-[1.02];
+  }
+  
+  .order-cancelled {
+    @apply bg-gradient-to-br from-red-400 to-red-500 text-white shadow-red-500/25 shadow-lg hover:shadow-red-500/40 hover:scale-[1.02];
+  }
+  
+  /* Inputs */
+  .input-base {
+    @apply w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl 
+           text-gray-900 placeholder-gray-400
+           transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500;
+  }
+  
+  .input-label {
+    @apply block text-sm font-medium text-gray-700 mb-1.5;
+  }
+  
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 
+           font-medium rounded-xl transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-primary {
+    @apply btn bg-gray-900 text-white hover:bg-gray-800 focus:ring-gray-500;
+  }
+  
+  .btn-success {
+    @apply btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-lg shadow-green-600/25;
+  }
+  
+  .btn-secondary {
+    @apply btn bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 focus:ring-gray-500;
+  }
+  
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+  
+  .btn-ghost {
+    @apply btn bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-500;
+  }
+  
+  .btn-icon {
+    @apply p-2.5 rounded-xl transition-colors hover:bg-gray-100;
+  }
 }
 
-.no-spinners {
-  -moz-appearance: textfield;
-  appearance: textfield;
-}
-
-input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type="number"] {
-  -moz-appearance: textfield;
-  appearance: textfield;
+@layer utilities {
+  /* Scrollbar */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full hover:bg-gray-400;
+  }
+  
+  /* Glass effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl;
+  }
+  
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent;
+  }
+  
+  /* Number input without spinners */
+  .no-spinners::-webkit-outer-spin-button,
+  .no-spinners::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  .no-spinners {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  
+  /* Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out;
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }

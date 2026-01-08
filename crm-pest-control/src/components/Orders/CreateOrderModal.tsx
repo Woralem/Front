@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '@/components/UI/Modal';
 import Button from '@/components/UI/Button';
 import Input from '@/components/UI/Input';
@@ -46,8 +46,7 @@ export default function CreateOrderModal({
     manager: 'Анастасия',
   });
 
-  // Обновляем дату/время при изменении props
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedDate) setForm(f => ({ ...f, date: selectedDate }));
     if (selectedTime) setForm(f => ({ ...f, time: selectedTime }));
   }, [selectedDate, selectedTime]);
@@ -111,28 +110,48 @@ export default function CreateOrderModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Создать заявку" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
-          <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm">
+          <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-fade-in">
+            <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
             {error}
           </div>
         )}
 
+        {/* Order Type Toggle */}
+        <div className="flex rounded-xl bg-gray-100 p-1">
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, orderType: 'primary' })}
+            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+              form.orderType === 'primary'
+                ? 'bg-green-600 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            🟢 Первичный
+          </button>
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, orderType: 'secondary' })}
+            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+              form.orderType === 'secondary'
+                ? 'bg-amber-500 text-white shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            🟡 Повторный
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
-          <Select
-            label="Тип заказа"
-            value={form.orderType}
-            onChange={(e) => setForm({ ...form, orderType: e.target.value as 'primary' | 'secondary' })}
-            options={[
-              { value: 'primary', label: '🟢 Первичный' },
-              { value: 'secondary', label: '🟡 Повторный' },
-            ]}
-          />
           <Input
             label="Имя клиента *"
             value={form.clientName}
             onChange={(e) => setForm({ ...form, clientName: e.target.value })}
-            required
+            placeholder="Иванов Иван"
           />
           <Select
             label="Вредитель"
@@ -150,14 +169,13 @@ export default function CreateOrderModal({
             label="Объем"
             value={form.volume}
             onChange={(e) => setForm({ ...form, volume: e.target.value })}
-            placeholder="2ккв"
+            placeholder="2-комн. квартира"
           />
           <Input
             label="Дата"
             type="date"
             value={form.date}
             onChange={(e) => setForm({ ...form, date: e.target.value })}
-            required
           />
           <Select
             label="Время"
@@ -166,25 +184,20 @@ export default function CreateOrderModal({
             options={TIMES.map(t => ({ value: t, label: t }))}
           />
           <Input
-            label="Цена базы"
+            label="Базовая цена"
             type="number"
             value={form.basePrice || ''}
             onChange={(e) => setForm({ ...form, basePrice: Number(e.target.value) })}
+            placeholder="5000"
           />
           <Select
             label="Тип клиента"
             value={form.clientType}
             onChange={(e) => setForm({ ...form, clientType: e.target.value as 'individual' | 'legal' })}
             options={[
-              { value: 'individual', label: 'Физ. лицо' },
-              { value: 'legal', label: 'Юр. лицо' },
+              { value: 'individual', label: '👤 Физ. лицо' },
+              { value: 'legal', label: '🏢 Юр. лицо' },
             ]}
-          />
-          <Select
-            label="Менеджер"
-            value={form.manager}
-            onChange={(e) => setForm({ ...form, manager: e.target.value })}
-            options={MANAGERS.map(m => ({ value: m, label: m }))}
           />
         </div>
 
@@ -192,60 +205,70 @@ export default function CreateOrderModal({
           label="Адрес *"
           value={form.address}
           onChange={(e) => setForm({ ...form, address: e.target.value })}
-          placeholder="Москва, ул Мира 12, под 1, этаж 3, кв 65"
-          required
+          placeholder="г. Москва, ул. Мира 12, кв. 65"
         />
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Телефоны</label>
+        {/* Phones */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Телефоны</label>
           {phones.map((phone, index) => (
-            <div key={index} className="flex gap-2 mb-2">
-              <input
-                type="tel"
+            <div key={index} className="flex gap-2">
+              <Input
                 value={phone}
                 onChange={(e) => updatePhone(index, e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                placeholder="89675456789"
+                placeholder="+7 (900) 123-45-67"
+                className="flex-1"
               />
               {phones.length > 1 && (
                 <button
                   type="button"
                   onClick={() => removePhone(index)}
-                  className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"
+                  className="p-2.5 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
                 >
-                  ✕
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                 </button>
               )}
               {index === phones.length - 1 && (
                 <button
                   type="button"
                   onClick={addPhone}
-                  className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                  className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
                 >
-                  +
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
                 </button>
               )}
             </div>
           ))}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий</label>
+        <Select
+          label="Менеджер"
+          value={form.manager}
+          onChange={(e) => setForm({ ...form, manager: e.target.value })}
+          options={MANAGERS.map(m => ({ value: m, label: m }))}
+        />
+
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-700">Комментарий</label>
           <textarea
             value={form.comment}
             onChange={(e) => setForm({ ...form, comment: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 resize-none"
             rows={3}
             placeholder="Дополнительная информация..."
           />
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
           <Button type="button" variant="secondary" onClick={onClose}>
             Отмена
           </Button>
-          <Button type="submit" variant="success" disabled={isLoading}>
-            {isLoading ? 'Создание...' : 'Создать заказ'}
+          <Button type="submit" variant="success" loading={isLoading}>
+            Создать заказ
           </Button>
         </div>
       </form>

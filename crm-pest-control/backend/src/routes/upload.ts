@@ -7,28 +7,40 @@ import { asyncHandler } from '../middleware/errorHandler';
 
 const router = Router();
 
-const uploadDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(process.cwd(), 'uploads');
+
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, uploadDir);
+    if (!fs.existsSync(UPLOADS_DIR)) {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    }
+    cb(null, UPLOADS_DIR);
   },
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname).toLowerCase();
     const filename = `${uuidv4()}${ext}`;
     cb(null, filename);
   },
 });
 
 const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+  const allowedTypes = [
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+  ];
+  
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Неподдерживаемый формат файла. Разрешены: JPG, PNG, GIF, WebP, PDF'));
+    cb(new Error('Недопустимый тип файла. Разрешены: JPG, PNG, GIF, WEBP, PDF'));
   }
 };
 
@@ -43,7 +55,10 @@ const upload = multer({
 // POST /api/upload - Загрузка файла
 router.post('/', upload.single('file'), asyncHandler(async (req: Request, res: Response) => {
   if (!req.file) {
-    return res.status(400).json({ success: false, error: 'Файл не загружен' });
+    return res.status(400).json({
+      success: false,
+      error: 'Файл не был загружен',
+    });
   }
 
   const fileUrl = `/uploads/${req.file.filename}`;
@@ -63,13 +78,50 @@ router.post('/', upload.single('file'), asyncHandler(async (req: Request, res: R
 // DELETE /api/upload/:filename - Удаление файла
 router.delete('/:filename', asyncHandler(async (req: Request, res: Response) => {
   const { filename } = req.params;
-  const filePath = path.join(uploadDir, filename);
   
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
+  const safeFilename = path.basename(filename);
+  const filePath = path.join(UPLOADS_DIR, safeFilename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({
+      success: false,
+      error: 'Файл не найден',
+    });
   }
   
-  res.json({ success: true, message: 'Файл удалён' });
+  fs.unlinkSync(filePath);
+  console.log(`✅ File deleted: ${safeFilename}`);
+  
+  res.json({
+    success: true,
+    message: 'Файл удалён',
+  });
+}));
+
+// GET /api/upload/list - Список файлов
+router.get('/list', asyncHandler(async (_req: Request, res: Response) => {
+  if (!fs.existsSync(UPLOADS_DIR)) {
+    return res.json({
+      success: true,
+      data: [],
+    });
+  }
+  
+  const files = fs.readdirSync(UPLOADS_DIR).filter(f => !f.startsWith('.'));
+  
+  res.json({
+    success: true,
+    data: files.map(filename => {
+      const filePath = path.join(UPLOADS_DIR, filename);
+      const stats = fs.statSync(filePath);
+      return {
+        filename,
+        url: `/uploads/${filename}`,
+        size: stats.size,
+        createdAt: stats.birthtime,
+      };
+    }),
+  });
 }));
 
 export default router;

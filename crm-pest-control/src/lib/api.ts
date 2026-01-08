@@ -292,10 +292,6 @@ export const api = {
 
   // Upload
   uploadFile,
-  
-  deleteFile: (filename: string) => fetchApi<void>(`/upload/${filename}`, {
-    method: 'DELETE',
-  }),
 
   // Statistics
   getStatistics: (year: number, month: number) => 

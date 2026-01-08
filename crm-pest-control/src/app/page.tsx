@@ -42,10 +42,7 @@ function DashboardContent() {
   }, [loadOrders]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadOrders();
-    }, 30000);
-
+    const interval = setInterval(loadOrders, 30000);
     return () => clearInterval(interval);
   }, [loadOrders]);
 
@@ -74,97 +71,161 @@ function DashboardContent() {
     router.push('/login');
   };
 
+  // Stats
+  const stats = {
+    primary: orders.filter(o => o.orderType === 'primary' && o.status === 'in_progress').length,
+    secondary: orders.filter(o => o.orderType === 'secondary' && o.status === 'in_progress').length,
+    completed: orders.filter(o => o.status === 'completed').length,
+    cancelled: orders.filter(o => o.status === 'cancelled').length,
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-sm">
-        <div className="max-w-full mx-auto px-4 py-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div className="max-w-full mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold text-gray-800">🐜 CRM Дезинсекция</h1>
+            {/* Left side */}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20">
+                  <span className="text-xl">🐜</span>
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold text-gray-900">CRM Дезинсекция</h1>
+                  <p className="text-xs text-gray-500">Управление заказами</p>
+                </div>
+              </div>
+              
               {isLoading && (
-                <span className="text-sm text-blue-600 animate-pulse">Загрузка...</span>
+                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full">
+                  <div className="w-3 h-3 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+                  Обновление...
+                </div>
               )}
+              
               {error && (
-                <span className="text-sm text-red-600 cursor-pointer" onClick={clearError}>
-                  ⚠️ {error}
-                </span>
+                <button
+                  onClick={clearError}
+                  className="flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-1.5 rounded-full hover:bg-red-100 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {error}
+                </button>
               )}
             </div>
-            <div className="flex gap-3">
+            
+            {/* Right side - Actions */}
+            <div className="flex items-center gap-3">
               <Button 
                 onClick={() => { setSelectedSlot(null); setShowCreateModal(true); }} 
                 variant="success"
+                icon="+"
               >
-                + Создать заявку
+                Создать заявку
               </Button>
-              <Button onClick={() => setShowSearchModal(true)} variant="secondary">
-                🔍 Поиск
+              <Button onClick={() => setShowSearchModal(true)} variant="secondary" icon="🔍">
+                Поиск
               </Button>
-              <Button onClick={() => router.push('/statistics')} variant="primary">
-                📊 Статистика
+              <Button onClick={() => router.push('/statistics')} variant="secondary" icon="📊">
+                Статистика
               </Button>
-              <Button onClick={loadOrders} variant="secondary" disabled={isLoading}>
-                🔄
-              </Button>
-              <Button onClick={handleLogout} variant="danger">
-                🚪 Выход
-              </Button>
+              <div className="w-px h-8 bg-gray-200"></div>
+              <button
+                onClick={loadOrders}
+                disabled={isLoading}
+                className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-50"
+                title="Обновить"
+              >
+                <svg className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2.5 rounded-xl text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
+                title="Выход"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-full mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
+      {/* Subheader with navigation */}
+      <div className="bg-white border-b border-gray-100 px-6 py-3">
+        <div className="flex items-center justify-between">
+          {/* Month navigation */}
+          <div className="flex items-center gap-2">
             <button
               onClick={() => changeMonth(-1)}
-              className="p-2 hover:bg-gray-200 rounded-lg text-xl"
+              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
             >
-              ◀
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
-            <h2 className="text-xl font-semibold min-w-[200px] text-center">
+            <h2 className="text-lg font-semibold text-gray-900 min-w-[180px] text-center">
               {months[month]} {year}
             </h2>
             <button
               onClick={() => changeMonth(1)}
-              className="p-2 hover:bg-gray-200 rounded-lg text-xl"
+              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
             >
-              ▶
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </button>
             <button
               onClick={() => setCurrentDate(new Date())}
-              className="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 rounded-lg"
+              className="ml-2 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
             >
               Сегодня
             </button>
           </div>
-          <div className="flex gap-4 text-sm">
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 bg-green-500 rounded"></span> Первичные ({orders.filter(o => o.orderType === 'primary' && o.status === 'in_progress').length})
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 bg-yellow-500 rounded"></span> Повторные ({orders.filter(o => o.orderType === 'secondary' && o.status === 'in_progress').length})
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 bg-gray-400 rounded"></span> Выполнены ({orders.filter(o => o.status === 'completed').length})
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 bg-red-500 rounded"></span> Отменены ({orders.filter(o => o.status === 'cancelled').length})
-            </span>
+          
+          {/* Stats badges */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
+              <span className="w-2.5 h-2.5 bg-green-500 rounded-full"></span>
+              <span className="text-sm font-medium text-green-700">Первичные</span>
+              <span className="text-sm font-bold text-green-800">{stats.primary}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-lg">
+              <span className="w-2.5 h-2.5 bg-amber-500 rounded-full"></span>
+              <span className="text-sm font-medium text-amber-700">Повторные</span>
+              <span className="text-sm font-bold text-amber-800">{stats.secondary}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
+              <span className="w-2.5 h-2.5 bg-gray-400 rounded-full"></span>
+              <span className="text-sm font-medium text-gray-600">Выполнены</span>
+              <span className="text-sm font-bold text-gray-800">{stats.completed}</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
+              <span className="w-2.5 h-2.5 bg-red-500 rounded-full"></span>
+              <span className="text-sm font-medium text-red-700">Отменены</span>
+              <span className="text-sm font-bold text-red-800">{stats.cancelled}</span>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="h-[calc(100vh-200px)] overflow-auto">
-          <DashboardGrid
-            dates={dates}
-            orders={orders}
-            onOrderClick={setSelectedOrder}
-            onSlotClick={handleSlotClick}
-          />
-        </div>
+      {/* Main content */}
+      <main className="p-6">
+        <DashboardGrid
+          dates={dates}
+          orders={orders}
+          onOrderClick={setSelectedOrder}
+          onSlotClick={handleSlotClick}
+        />
       </main>
 
+      {/* Modals */}
       <CreateOrderModal
         isOpen={showCreateModal}
         onClose={() => { setShowCreateModal(false); setSelectedSlot(null); }}
