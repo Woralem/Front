@@ -54,6 +54,8 @@ coverage/
 .eslintcache
 .stylelintcache
 *.cache
+backend/uploads/
+uploads/
 
 # Logs
 logs/

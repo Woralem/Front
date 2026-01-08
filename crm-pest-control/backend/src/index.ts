@@ -1,10 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
+import path from 'path';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import orderRoutes from './routes/orders';
 import statisticsRoutes from './routes/statistics';
 import authRoutes from './routes/auth';
+import uploadRoutes from './routes/upload';
 import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
@@ -23,6 +25,8 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Logging
 app.use((req: Request, _res: Response, next: NextFunction) => {
@@ -48,6 +52,7 @@ app.use('/api/auth', authRoutes);
 // Protected routes
 app.use('/api/orders', authMiddleware, orderRoutes);
 app.use('/api/statistics', authMiddleware, statisticsRoutes);
+app.use('/api/upload', authMiddleware, uploadRoutes);
 
 // Error handling
 app.use(errorHandler);

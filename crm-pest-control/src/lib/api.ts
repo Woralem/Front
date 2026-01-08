@@ -16,6 +16,12 @@ const getApiUrl = (): string => {
 
 const API_URL = getApiUrl();
 
+const getBaseUrl = (): string => {
+  return API_URL.replace('/api', '');
+};
+
+export const BASE_URL = getBaseUrl();
+
 const getToken = (): string | null => {
   if (typeof window !== 'undefined') {
     return localStorage.getItem('crm_token');
@@ -23,21 +29,18 @@ const getToken = (): string | null => {
   return null;
 };
 
-// Сохранение токена
 export const setToken = (token: string): void => {
   if (typeof window !== 'undefined') {
     localStorage.setItem('crm_token', token);
   }
 };
 
-// Удаление токена
 export const removeToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('crm_token');
   }
 };
 
-// Проверка наличия токена
 export const hasToken = (): boolean => {
   return !!getToken();
 };
@@ -99,6 +102,31 @@ async function fetchApi<T>(
   }
 }
 
+async function uploadFile(file: File): Promise<UploadResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}/upload`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const json = await response.json();
+  
+  if (!response.ok || json.success === false) {
+    throw new Error(json.error || 'Ошибка загрузки файла');
+  }
+
+  return json.data;
+}
+
 // Types
 export interface Order {
   id: string;
@@ -155,6 +183,7 @@ export interface UpdateOrderData extends Partial<CreateOrderData> {
   masterName?: string;
   masterContact?: string;
   completionComment?: string;
+  contractPhoto?: string;
   cancelReason?: string;
 }
 
@@ -195,12 +224,21 @@ export interface MonthlyPlan {
 export interface StatisticsData {
   daily: DailyStats[];
   totals: TotalsStats;
-  plan: MonthlyPlan;
+  plan?: MonthlyPlan;
+  period?: { startDate: string; endDate: string };
 }
 
 export interface LoginResponse {
   token: string;
   expiresIn: string;
+}
+
+export interface UploadResponse {
+  filename: string;
+  originalName: string;
+  url: string;
+  size: number;
+  mimetype: string;
 }
 
 // API Methods
@@ -252,9 +290,19 @@ export const api = {
     return fetchApi<Order[]>(`/orders/search/query?${query}`);
   },
 
+  // Upload
+  uploadFile,
+  
+  deleteFile: (filename: string) => fetchApi<void>(`/upload/${filename}`, {
+    method: 'DELETE',
+  }),
+
   // Statistics
   getStatistics: (year: number, month: number) => 
     fetchApi<StatisticsData>(`/statistics/${year}/${month.toString().padStart(2, '0')}`),
+
+  getStatisticsByPeriod: (startDate: string, endDate: string) =>
+    fetchApi<StatisticsData>(`/statistics/period?startDate=${startDate}&endDate=${endDate}`),
 
   updateAdSpend: (date: string, amount: number) => fetchApi<void>('/statistics/ad-spend', {
     method: 'PUT',

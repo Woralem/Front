@@ -1,4 +1,3 @@
-// src/store/orderStore.ts
 import { create } from 'zustand';
 import api, { Order, CreateOrderData, UpdateOrderData, StatisticsData } from '@/lib/api';
 
@@ -19,6 +18,7 @@ interface OrderStore {
   // Statistics
   statistics: StatisticsData | null;
   fetchStatistics: (year: number, month: number) => Promise<void>;
+  fetchStatisticsByPeriod: (startDate: string, endDate: string) => Promise<void>;
   updateAdSpend: (date: string, amount: number) => Promise<void>;
   
   // Helpers
@@ -114,6 +114,16 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const statistics = await api.getStatistics(year, month);
+      set({ statistics, isLoading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false });
+    }
+  },
+
+  fetchStatisticsByPeriod: async (startDate: string, endDate: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const statistics = await api.getStatisticsByPeriod(startDate, endDate);
       set({ statistics, isLoading: false });
     } catch (error) {
       set({ error: (error as Error).message, isLoading: false });

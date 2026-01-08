@@ -6,12 +6,19 @@ import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Button from '@/components/UI/Button';
 import { useOrderStore } from '@/store/orderStore';
 import { useAuth } from '@/contexts/AuthContext';
+import { DailyStats } from '@/lib/api';
+
+type PeriodMode = 'month' | 'custom';
 
 function StatisticsContent() {
   const router = useRouter();
   const { logout } = useAuth();
-  const { statistics, isLoading, fetchStatistics, updateAdSpend } = useOrderStore();
+  const { statistics, isLoading, fetchStatistics, fetchStatisticsByPeriod, updateAdSpend } = useOrderStore();
+  
+  const [periodMode, setPeriodMode] = useState<PeriodMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [mounted, setMounted] = useState(false);
   
   const [localAdSpend, setLocalAdSpend] = useState<Record<string, string>>({});
@@ -26,17 +33,35 @@ function StatisticsContent() {
     'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
   ];
+  useEffect(() => {
+    if (!customStart && !customEnd) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setCustomStart(firstDay.toISOString().split('T')[0]);
+      setCustomEnd(lastDay.toISOString().split('T')[0]);
+    }
+  }, [customStart, customEnd]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (mounted) {
-      initializedRef.current = false;
+  const loadData = useCallback(() => {
+    if (!mounted) return;
+    
+    initializedRef.current = false;
+    
+    if (periodMode === 'month') {
       fetchStatistics(year, month);
+    } else if (customStart && customEnd) {
+      fetchStatisticsByPeriod(customStart, customEnd);
     }
-  }, [year, month, mounted, fetchStatistics]);
+  }, [mounted, periodMode, year, month, customStart, customEnd, fetchStatistics, fetchStatisticsByPeriod]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   useEffect(() => {
     if (statistics?.daily && !initializedRef.current) {
@@ -79,10 +104,7 @@ function StatisticsContent() {
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveAllDirtyFields]);
 
   const handleAdSpendChange = (date: string, value: string) => {
@@ -109,6 +131,11 @@ function StatisticsContent() {
     setCurrentDate(new Date(year, currentDate.getMonth() + delta, 1));
   };
 
+  const handleApplyPeriod = async () => {
+    await saveAllDirtyFields();
+    loadData();
+  };
+
   const handleBack = async () => {
     await saveAllDirtyFields();
     router.push('/');
@@ -118,6 +145,39 @@ function StatisticsContent() {
     await saveAllDirtyFields();
     logout();
     router.push('/login');
+  };
+
+  const setQuickPeriod = (type: 'today' | 'week' | 'month' | 'quarter' | 'year') => {
+    const now = new Date();
+    let start: Date;
+    let end: Date = now;
+
+    switch (type) {
+      case 'today':
+        start = now;
+        break;
+      case 'week':
+        start = new Date(now);
+        start.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+      case 'quarter':
+        const quarter = Math.floor(now.getMonth() / 3);
+        start = new Date(now.getFullYear(), quarter * 3, 1);
+        end = new Date(now.getFullYear(), quarter * 3 + 3, 0);
+        break;
+      case 'year':
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear(), 11, 31);
+        break;
+    }
+
+    setCustomStart(start.toISOString().split('T')[0]);
+    setCustomEnd(end.toISOString().split('T')[0]);
+    setPeriodMode('custom');
   };
 
   if (!mounted) {
@@ -169,7 +229,7 @@ function StatisticsContent() {
   const getPercent = (fact: number, planValue: number) => 
     planValue ? Math.round((fact / planValue) * 100) : 0;
 
-  const getDayNetProfit = (day: typeof daily[0]) => {
+  const getDayNetProfit = (day: DailyStats) => {
     const adSpend = Number(localAdSpend[day.date]) || 0;
     return day.cashDesk - adSpend;
   };
@@ -196,7 +256,44 @@ function StatisticsContent() {
                 <span className="text-sm text-orange-600">● Есть несохранённые изменения</span>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Button onClick={handleLogout} variant="danger">
+                🚪 Выход
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Period Selector */}
+      <div className="bg-white border-b px-4 py-3">
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Mode Toggle */}
+          <div className="flex rounded-lg overflow-hidden border">
+            <button
+              onClick={() => setPeriodMode('month')}
+              className={`px-4 py-2 text-sm font-medium ${
+                periodMode === 'month' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              По месяцам
+            </button>
+            <button
+              onClick={() => setPeriodMode('custom')}
+              className={`px-4 py-2 text-sm font-medium ${
+                periodMode === 'custom' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Произвольный период
+            </button>
+          </div>
+
+          {periodMode === 'month' ? (
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => changeMonth(-1)}
                 className="p-2 hover:bg-gray-200 rounded text-xl"
@@ -214,13 +311,67 @@ function StatisticsContent() {
               >
                 ▶
               </button>
-              <Button onClick={handleLogout} variant="danger">
-                🚪 Выход
-              </Button>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">С:</span>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="border rounded px-3 py-1.5 text-sm"
+                />
+                <span className="text-sm text-gray-500">По:</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="border rounded px-3 py-1.5 text-sm"
+                />
+                <Button onClick={handleApplyPeriod} size="sm" disabled={isLoading}>
+                  Применить
+                </Button>
+              </div>
+
+              {/* Quick periods */}
+              <div className="flex items-center gap-1 border-l pl-4">
+                <span className="text-sm text-gray-500 mr-2">Быстрый выбор:</span>
+                <button
+                  onClick={() => setQuickPeriod('today')}
+                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                >
+                  Сегодня
+                </button>
+                <button
+                  onClick={() => setQuickPeriod('week')}
+                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                >
+                  7 дней
+                </button>
+                <button
+                  onClick={() => setQuickPeriod('month')}
+                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                >
+                  Месяц
+                </button>
+                <button
+                  onClick={() => setQuickPeriod('quarter')}
+                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                >
+                  Квартал
+                </button>
+                <button
+                  onClick={() => setQuickPeriod('year')}
+                  className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+                >
+                  Год
+                </button>
+              </div>
+            </>
+          )}
         </div>
-      </header>
+      </div>
 
       <main className="max-w-full mx-auto px-4 py-6">
         <div className="grid grid-cols-3 gap-6">
@@ -251,7 +402,8 @@ function StatisticsContent() {
                         <td className="p-2">
                           {new Date(day.date + 'T00:00:00').toLocaleDateString('ru-RU', { 
                             day: '2-digit', 
-                            month: '2-digit' 
+                            month: '2-digit',
+                            year: periodMode === 'custom' ? '2-digit' : undefined
                           })}
                         </td>
                         <td className="p-2 text-center">
@@ -321,6 +473,19 @@ function StatisticsContent() {
 
           {/* Sidebar */}
           <div className="space-y-4">
+            {/* Period Info */}
+            {periodMode === 'custom' && statistics?.period && (
+              <div className="bg-blue-50 rounded-xl p-4 text-sm">
+                <div className="font-medium text-blue-800 mb-1">📅 Выбранный период</div>
+                <div className="text-blue-600">
+                  {new Date(statistics.period.startDate).toLocaleDateString('ru-RU')} — {new Date(statistics.period.endDate).toLocaleDateString('ru-RU')}
+                </div>
+                <div className="text-blue-500 text-xs mt-1">
+                  {daily.length} дней
+                </div>
+              </div>
+            )}
+            
             {/* Unit Economics */}
             <div className="bg-white rounded-xl shadow p-4">
               <h3 className="font-bold mb-4 text-lg">📈 Юнит-экономика</h3>
@@ -369,75 +534,83 @@ function StatisticsContent() {
                       : 0} ₽
                   </span>
                 </div>
+                {totals.adSpend > 0 && totals.primaryCount > 0 && (
+                  <div className="flex justify-between py-1">
+                    <span className="text-gray-600">CPL (цена лида):</span>
+                    <span>{Math.round(totals.adSpend / totals.primaryCount).toLocaleString()} ₽</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Plan vs Fact */}
-            <div className="bg-white rounded-xl shadow p-4">
-              <h3 className="font-bold mb-4 text-lg">📋 План / Факт</h3>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-500">
-                    <th className="text-left py-1"></th>
-                    <th className="text-right py-1">План</th>
-                    <th className="text-right py-1">Факт</th>
-                    <th className="text-right py-1">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t">
-                    <td className="py-2">Первички</td>
-                    <td className="text-right text-gray-500">{plan.primaryCount}</td>
-                    <td className="text-right">{totals.primaryCount}</td>
-                    <td className="text-right">
-                      <span className={getPercent(totals.primaryCount, plan.primaryCount) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
-                        {getPercent(totals.primaryCount, plan.primaryCount)}%
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2">Повторы</td>
-                    <td className="text-right text-gray-500">{plan.secondaryCount}</td>
-                    <td className="text-right">{totals.secondaryCount}</td>
-                    <td className="text-right">
-                      <span className={getPercent(totals.secondaryCount, plan.secondaryCount) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
-                        {getPercent(totals.secondaryCount, plan.secondaryCount)}%
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2">Выручка</td>
-                    <td className="text-right text-gray-500">{(plan.totalSum / 1000).toFixed(0)}k</td>
-                    <td className="text-right">{(totals.totalSum / 1000).toFixed(0)}k</td>
-                    <td className="text-right">
-                      <span className={getPercent(totals.totalSum, plan.totalSum) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
-                        {getPercent(totals.totalSum, plan.totalSum)}%
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="py-2">В кассу</td>
-                    <td className="text-right text-gray-500">{(plan.cashDesk / 1000).toFixed(0)}k</td>
-                    <td className="text-right">{(totals.cashDesk / 1000).toFixed(0)}k</td>
-                    <td className="text-right">
-                      <span className={getPercent(totals.cashDesk, plan.cashDesk) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
-                        {getPercent(totals.cashDesk, plan.cashDesk)}%
-                      </span>
-                    </td>
-                  </tr>
-                  <tr className="border-t font-bold">
-                    <td className="py-2">ЧП</td>
-                    <td className="text-right text-gray-500">{(plan.netProfit / 1000).toFixed(0)}k</td>
-                    <td className="text-right">{(totals.netProfit / 1000).toFixed(0)}k</td>
-                    <td className="text-right">
-                      <span className={getPercent(totals.netProfit, plan.netProfit) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
-                        {getPercent(totals.netProfit, plan.netProfit)}%
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {/* Plan vs Fact (только для месячного режима) */}
+            {periodMode === 'month' && (
+              <div className="bg-white rounded-xl shadow p-4">
+                <h3 className="font-bold mb-4 text-lg">📋 План / Факт</h3>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-gray-500">
+                      <th className="text-left py-1"></th>
+                      <th className="text-right py-1">План</th>
+                      <th className="text-right py-1">Факт</th>
+                      <th className="text-right py-1">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t">
+                      <td className="py-2">Первички</td>
+                      <td className="text-right text-gray-500">{plan.primaryCount}</td>
+                      <td className="text-right">{totals.primaryCount}</td>
+                      <td className="text-right">
+                        <span className={getPercent(totals.primaryCount, plan.primaryCount) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
+                          {getPercent(totals.primaryCount, plan.primaryCount)}%
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="py-2">Повторы</td>
+                      <td className="text-right text-gray-500">{plan.secondaryCount}</td>
+                      <td className="text-right">{totals.secondaryCount}</td>
+                      <td className="text-right">
+                        <span className={getPercent(totals.secondaryCount, plan.secondaryCount) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
+                          {getPercent(totals.secondaryCount, plan.secondaryCount)}%
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="py-2">Выручка</td>
+                      <td className="text-right text-gray-500">{(plan.totalSum / 1000).toFixed(0)}k</td>
+                      <td className="text-right">{(totals.totalSum / 1000).toFixed(0)}k</td>
+                      <td className="text-right">
+                        <span className={getPercent(totals.totalSum, plan.totalSum) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
+                          {getPercent(totals.totalSum, plan.totalSum)}%
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="py-2">В кассу</td>
+                      <td className="text-right text-gray-500">{(plan.cashDesk / 1000).toFixed(0)}k</td>
+                      <td className="text-right">{(totals.cashDesk / 1000).toFixed(0)}k</td>
+                      <td className="text-right">
+                        <span className={getPercent(totals.cashDesk, plan.cashDesk) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
+                          {getPercent(totals.cashDesk, plan.cashDesk)}%
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="border-t font-bold">
+                      <td className="py-2">ЧП</td>
+                      <td className="text-right text-gray-500">{(plan.netProfit / 1000).toFixed(0)}k</td>
+                      <td className="text-right">{(totals.netProfit / 1000).toFixed(0)}k</td>
+                      <td className="text-right">
+                        <span className={getPercent(totals.netProfit, plan.netProfit) >= 100 ? 'text-green-600' : 'text-yellow-600'}>
+                          {getPercent(totals.netProfit, plan.netProfit)}%
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </main>

@@ -5,8 +5,9 @@ import Modal from '@/components/UI/Modal';
 import Button from '@/components/UI/Button';
 import Input from '@/components/UI/Input';
 import Select from '@/components/UI/Select';
+import FileUpload from '@/components/UI/FileUpload';
 import { useOrderStore } from '@/store/orderStore';
-import { Order } from '@/lib/api';
+import { Order, BASE_URL } from '@/lib/api';
 
 interface Props {
   order: Order | null;
@@ -30,6 +31,7 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
     repeatDate: '',
     repeatTime: '09:00',
     completionComment: '',
+    contractPhoto: '',
   });
   
   const [cancelReason, setCancelReason] = useState('');
@@ -45,6 +47,7 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
         repeatDate: order.repeatDate || '',
         repeatTime: order.repeatTime || '09:00',
         completionComment: order.completionComment || '',
+        contractPhoto: order.contractPhoto || '',
       });
       setCancelReason(order.cancelReason || '');
     }
@@ -85,6 +88,12 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
         setError((err as Error).message);
       }
     }
+  };
+
+  const getFullUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${BASE_URL}${url}`;
   };
 
   const statusColor = {
@@ -140,6 +149,29 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
             </div>
           )}
         </div>
+        {order.contractPhoto && order.status === 'completed' && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <div className="text-sm font-medium text-green-800 mb-2">📄 Договор:</div>
+            {order.contractPhoto.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+              <a href={getFullUrl(order.contractPhoto)} target="_blank" rel="noopener noreferrer">
+                <img
+                  src={getFullUrl(order.contractPhoto)}
+                  alt="Договор"
+                  className="max-h-32 rounded border cursor-pointer hover:opacity-80"
+                />
+              </a>
+            ) : (
+              <a
+                href={getFullUrl(order.contractPhoto)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                Открыть документ
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Status Select */}
         <Select
@@ -201,6 +233,14 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
                 options={TIMES.map(t => ({ value: t, label: t }))}
               />
             </div>
+            
+            {/* Загрузка договора */}
+            <FileUpload
+              label="Фото договора"
+              value={completedForm.contractPhoto}
+              onChange={(url) => setCompletedForm({ ...completedForm, contractPhoto: url || '' })}
+            />
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Комментарий</label>
               <textarea
