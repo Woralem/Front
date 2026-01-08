@@ -1,3 +1,4 @@
+// src/components/Orders/OrderDetailsModal.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -18,10 +19,26 @@ interface Props {
 
 const TIMES = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
 
+const formatDate = (dateStr: string): string => {
+  if (!dateStr) return '-';
+  
+  try {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
 export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }: Props) {
   const { updateOrder, deleteOrder, isLoading } = useOrderStore();
   const [status, setStatus] = useState(order?.status || 'in_progress');
   const [error, setError] = useState<string | null>(null);
+  const [fileExists, setFileExists] = useState<boolean | null>(null);
   
   const [completedForm, setCompletedForm] = useState({
     finalAmount: 0,
@@ -35,6 +52,31 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
   });
   
   const [cancelReason, setCancelReason] = useState('');
+
+  const getFullUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${BASE_URL}${url}`;
+  };
+
+  useEffect(() => {
+    if (order?.contractPhoto) {
+      setFileExists(null);
+      
+      const checkFile = async () => {
+        try {
+          const response = await fetch(getFullUrl(order.contractPhoto!), { method: 'HEAD' });
+          setFileExists(response.ok);
+        } catch {
+          setFileExists(false);
+        }
+      };
+      
+      checkFile();
+    } else {
+      setFileExists(null);
+    }
+  }, [order?.contractPhoto]);
 
   useEffect(() => {
     if (order) {
@@ -88,12 +130,6 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
         setError((err as Error).message);
       }
     }
-  };
-
-  const getFullUrl = (url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    return `${BASE_URL}${url}`;
   };
 
   const getStatusStyles = () => {
@@ -162,7 +198,8 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Дата:</span>
-                <span className="font-medium">{order.date}</span>
+                {/* ✅ Форматированная дата */}
+                <span className="font-medium">{formatDate(order.date)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Время:</span>
@@ -228,33 +265,54 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
 
         {/* Contract photo for completed orders */}
         {order.contractPhoto && order.status === 'completed' && (
-          <div className="bg-green-50 rounded-xl p-4">
-            <h4 className="font-medium text-green-900 flex items-center gap-2 mb-3">
-              <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className={`rounded-xl p-4 ${fileExists === false ? 'bg-red-50' : 'bg-green-50'}`}>
+            <h4 className={`font-medium flex items-center gap-2 mb-3 ${fileExists === false ? 'text-red-900' : 'text-green-900'}`}>
+              <svg className={`w-5 h-5 ${fileExists === false ? 'text-red-500' : 'text-green-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               Договор
             </h4>
-            {order.contractPhoto.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-              <a href={getFullUrl(order.contractPhoto)} target="_blank" rel="noopener noreferrer">
-                <img
-                  src={getFullUrl(order.contractPhoto)}
-                  alt="Договор"
-                  className="max-h-40 rounded-xl border border-green-200 cursor-pointer hover:opacity-90 transition-opacity"
-                />
-              </a>
-            ) : (
-              <a
-                href={getFullUrl(order.contractPhoto)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-green-700 hover:text-green-800 hover:underline"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            
+            {fileExists === null && (
+              <div className="flex items-center gap-2 text-gray-500">
+                <div className="w-4 h-4 rounded-full border-2 border-gray-400 border-t-transparent animate-spin"></div>
+                Проверка файла...
+              </div>
+            )}
+            
+            {fileExists === false && (
+              <div className="flex items-center gap-2 text-red-600">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                Открыть документ
-              </a>
+                <span className="text-sm">Файл не найден. Загрузите новый файл в форме ниже.</span>
+              </div>
+            )}
+            
+            {fileExists === true && (
+              <>
+                {order.contractPhoto.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                  <a href={getFullUrl(order.contractPhoto)} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={getFullUrl(order.contractPhoto)}
+                      alt="Договор"
+                      className="max-h-40 rounded-xl border border-green-200 cursor-pointer hover:opacity-90 transition-opacity"
+                    />
+                  </a>
+                ) : (
+                  <a
+                    href={getFullUrl(order.contractPhoto)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-green-700 hover:text-green-800 hover:underline"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Открыть документ
+                  </a>
+                )}
+              </>
             )}
           </div>
         )}
@@ -374,11 +432,20 @@ export default function OrderDetailsModal({ order, isOpen, onClose, onSuccess }:
               />
             </div>
             
-            <FileUpload
-              label="Фото договора"
-              value={completedForm.contractPhoto}
-              onChange={(url) => setCompletedForm({ ...completedForm, contractPhoto: url || '' })}
-            />
+            <div className="space-y-2">
+              {fileExists === false && completedForm.contractPhoto && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+                  <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
+              <FileUpload
+                label="Фото договора"
+                value={fileExists === false ? '' : completedForm.contractPhoto}
+                onChange={(url) => setCompletedForm({ ...completedForm, contractPhoto: url || '' })}
+              />
+            </div>
             
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-gray-700">Комментарий</label>
