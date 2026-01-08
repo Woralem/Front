@@ -1,24 +1,22 @@
-// src/app/statistics/page.tsx
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Button from '@/components/UI/Button';
 import { useOrderStore } from '@/store/orderStore';
+import { useAuth } from '@/contexts/AuthContext';
 
-export default function StatisticsPage() {
+function StatisticsContent() {
   const router = useRouter();
+  const { logout } = useAuth();
   const { statistics, isLoading, fetchStatistics, updateAdSpend } = useOrderStore();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   
-  // Локальное состояние для ad spend
   const [localAdSpend, setLocalAdSpend] = useState<Record<string, string>>({});
-  // Флаг что данные уже инициализированы с сервера
   const initializedRef = useRef(false);
-  // Отслеживаем изменённые поля
   const dirtyFieldsRef = useRef<Set<string>>(new Set());
-  // Флаг сохранения
   const [isSaving, setIsSaving] = useState(false);
 
   const year = currentDate.getFullYear();
@@ -57,7 +55,6 @@ export default function StatisticsPage() {
     if (dirtyDates.length === 0) return;
 
     setIsSaving(true);
-    console.log('💾 Saving dirty fields:', dirtyDates);
 
     try {
       for (const date of dirtyDates) {
@@ -98,7 +95,6 @@ export default function StatisticsPage() {
     if (!dirtyFieldsRef.current.has(date)) return;
 
     const value = Number(localAdSpend[date]) || 0;
-    console.log(`📤 Saving: ${date} = ${value}`);
     
     try {
       await updateAdSpend(date, value);
@@ -116,6 +112,12 @@ export default function StatisticsPage() {
   const handleBack = async () => {
     await saveAllDirtyFields();
     router.push('/');
+  };
+
+  const handleLogout = async () => {
+    await saveAllDirtyFields();
+    logout();
+    router.push('/login');
   };
 
   if (!mounted) {
@@ -212,6 +214,9 @@ export default function StatisticsPage() {
               >
                 ▶
               </button>
+              <Button onClick={handleLogout} variant="danger">
+                🚪 Выход
+              </Button>
             </div>
           </div>
         </div>
@@ -437,5 +442,13 @@ export default function StatisticsPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function StatisticsPage() {
+  return (
+    <ProtectedRoute>
+      <StatisticsContent />
+    </ProtectedRoute>
   );
 }

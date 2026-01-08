@@ -1,18 +1,20 @@
-// src/app/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import Button from '@/components/UI/Button';
 import DashboardGrid from '@/components/Dashboard/DashboardGrid';
 import CreateOrderModal from '@/components/Orders/CreateOrderModal';
 import OrderDetailsModal from '@/components/Orders/OrderDetailsModal';
 import SearchModal from '@/components/Search/SearchModal';
 import { useOrderStore } from '@/store/orderStore';
+import { useAuth } from '@/contexts/AuthContext';
 import { Order } from '@/types';
 
-export default function Dashboard() {
+function DashboardContent() {
   const router = useRouter();
+  const { logout } = useAuth();
   const { orders, isLoading, error, fetchOrders, clearError } = useOrderStore();
   
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -31,7 +33,6 @@ export default function Dashboard() {
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
   ];
 
-  // Загрузка заказов при изменении месяца
   const loadOrders = useCallback(() => {
     fetchOrders(year, month + 1);
   }, [fetchOrders, year, month]);
@@ -40,7 +41,6 @@ export default function Dashboard() {
     loadOrders();
   }, [loadOrders]);
 
-  // Автообновление каждые 30 секунд
   useEffect(() => {
     const interval = setInterval(() => {
       loadOrders();
@@ -67,6 +67,11 @@ export default function Dashboard() {
   const handleOrderUpdated = () => {
     setSelectedOrder(null);
     loadOrders();
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push('/login');
   };
 
   return (
@@ -100,6 +105,9 @@ export default function Dashboard() {
               </Button>
               <Button onClick={loadOrders} variant="secondary" disabled={isLoading}>
                 🔄
+              </Button>
+              <Button onClick={handleLogout} variant="danger">
+                🚪 Выход
               </Button>
             </div>
           </div>
@@ -178,5 +186,13 @@ export default function Dashboard() {
         onSelectOrder={setSelectedOrder}
       />
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   );
 }

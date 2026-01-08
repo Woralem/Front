@@ -1,10 +1,8 @@
-// Определяем API URL
 const getApiUrl = (): string => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   
-  // Для Codespaces
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     if (hostname.includes('.app.github.dev')) {
@@ -18,7 +16,31 @@ const getApiUrl = (): string => {
 
 const API_URL = getApiUrl();
 
-console.log('🔗 API URL:', API_URL);
+const getToken = (): string | null => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('crm_token');
+  }
+  return null;
+};
+
+// Сохранение токена
+export const setToken = (token: string): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('crm_token', token);
+  }
+};
+
+// Удаление токена
+export const removeToken = (): void => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('crm_token');
+  }
+};
+
+// Проверка наличия токена
+export const hasToken = (): boolean => {
+  return !!getToken();
+};
 
 interface ApiResponse<T> {
   success: boolean;
@@ -29,24 +51,38 @@ interface ApiResponse<T> {
 
 async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  requireAuth: boolean = true
 ): Promise<T> {
   const url = `${API_URL}${endpoint}`;
   
-  console.log(`📡 ${options.method || 'GET'} ${url}`);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options.headers as Record<string, string>,
+  };
+
+  if (requireAuth) {
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
   
   try {
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     });
 
     const json: ApiResponse<T> = await response.json();
-    
-    console.log(`�� Response:`, json);
+
+    if (response.status === 401) {
+      removeToken();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
+      throw new Error('Сессия истекла');
+    }
 
     if (!response.ok) {
       throw new Error(json.error || json.message || `HTTP ${response.status}`);
@@ -162,8 +198,26 @@ export interface StatisticsData {
   plan: MonthlyPlan;
 }
 
+export interface LoginResponse {
+  token: string;
+  expiresIn: string;
+}
+
 // API Methods
 export const api = {
+  // Auth
+  login: (password: string) => fetchApi<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  }, false),
+
+  verifyToken: () => fetchApi<{ valid: boolean }>('/auth/verify'),
+
+  logout: () => {
+    removeToken();
+    return Promise.resolve();
+  },
+  
   // Health check
   health: () => fetch(`${API_URL.replace('/api', '')}/health`).then(r => r.json()),
   

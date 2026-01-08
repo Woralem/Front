@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import orderRoutes from './routes/orders';
 import statisticsRoutes from './routes/statistics';
+import authRoutes from './routes/auth';
+import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -12,9 +14,9 @@ const app = express();
 export const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
 
-// CORS - разрешаем все origins для Codespaces
+// CORS
 app.use(cors({
-  origin: true, // Разрешить все origins
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -28,26 +30,24 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// Health check
+// Public routes
 app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// API info
 app.get('/api', (_req: Request, res: Response) => {
   res.json({ 
     message: 'CRM Pest Control API',
     version: '1.0.0',
-    endpoints: {
-      orders: '/api/orders',
-      statistics: '/api/statistics/:year/:month',
-    }
   });
 });
 
-// Routes
-app.use('/api/orders', orderRoutes);
-app.use('/api/statistics', statisticsRoutes);
+// Auth routes
+app.use('/api/auth', authRoutes);
+
+// Protected routes
+app.use('/api/orders', authMiddleware, orderRoutes);
+app.use('/api/statistics', authMiddleware, statisticsRoutes);
 
 // Error handling
 app.use(errorHandler);
@@ -63,12 +63,6 @@ async function main(): Promise<void> {
     console.log('✅ Database connected');
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`📚 Endpoints:`);
-      console.log(`   GET  /health`);
-      console.log(`   GET  /api`);
-      console.log(`   GET  /api/orders`);
-      console.log(`   POST /api/orders`);
-      console.log(`   GET  /api/statistics/:year/:month`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

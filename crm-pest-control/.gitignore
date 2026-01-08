@@ -58,6 +58,7 @@ coverage/
 # Logs
 logs/
 *.log
+*.txt
 
 # Temp files
 tmp/
