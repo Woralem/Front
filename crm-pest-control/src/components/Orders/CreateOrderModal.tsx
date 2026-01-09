@@ -71,7 +71,6 @@ export default function CreateOrderModal({
         phones: phones.filter(p => p.trim()),
       });
       
-      // Reset form
       setForm({
         orderType: 'primary',
         clientName: '',
@@ -110,7 +109,7 @@ export default function CreateOrderModal({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Создать заявку" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         {error && (
           <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-fade-in">
             <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -125,10 +124,10 @@ export default function CreateOrderModal({
           <button
             type="button"
             onClick={() => setForm({ ...form, orderType: 'primary' })}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 py-2.5 sm:py-2 px-3 sm:px-4 rounded-lg text-sm font-medium transition-all ${
               form.orderType === 'primary'
                 ? 'bg-green-600 text-white shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                : 'text-gray-600'
             }`}
           >
             🟢 Первичный
@@ -136,17 +135,18 @@ export default function CreateOrderModal({
           <button
             type="button"
             onClick={() => setForm({ ...form, orderType: 'secondary' })}
-            className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-1 py-2.5 sm:py-2 px-3 sm:px-4 rounded-lg text-sm font-medium transition-all ${
               form.orderType === 'secondary'
                 ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                : 'text-gray-600'
             }`}
           >
             🟡 Повторный
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Main fields - стековый на мобильных */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <Input
             label="Имя клиента *"
             value={form.clientName}
@@ -186,6 +186,7 @@ export default function CreateOrderModal({
           <Input
             label="Базовая цена"
             type="number"
+            inputMode="numeric"
             value={form.basePrice || ''}
             onChange={(e) => setForm({ ...form, basePrice: Number(e.target.value) })}
             placeholder="5000"
@@ -217,24 +218,29 @@ export default function CreateOrderModal({
                 value={phone}
                 onChange={(e) => updatePhone(index, e.target.value)}
                 placeholder="+7 (900) 123-45-67"
+                type="tel"
+                inputMode="tel"
                 className="flex-1"
               />
-              {phones.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removePhone(index)}
-                  className="p-2.5 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => removePhone(index)}
+                className={`p-2.5 rounded-xl transition-colors ${
+                  phones.length > 1 
+                    ? 'text-red-500 active:bg-red-50' 
+                    : 'text-gray-300'
+                }`}
+                disabled={phones.length <= 1}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
               {index === phones.length - 1 && (
                 <button
                   type="button"
                   onClick={addPhone}
-                  className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+                  className="p-2.5 rounded-xl text-gray-500 active:bg-gray-100 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -257,17 +263,18 @@ export default function CreateOrderModal({
           <textarea
             value={form.comment}
             onChange={(e) => setForm({ ...form, comment: e.target.value })}
-            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 resize-none"
+            className="w-full px-4 py-3 sm:py-2.5 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 resize-none text-base sm:text-sm"
             rows={3}
             placeholder="Дополнительная информация..."
           />
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-          <Button type="button" variant="secondary" onClick={onClose}>
+        {/* Actions - полная ширина на мобильных */}
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-gray-100">
+          <Button type="button" variant="secondary" onClick={onClose} className="w-full sm:w-auto">
             Отмена
           </Button>
-          <Button type="submit" variant="success" loading={isLoading}>
+          <Button type="submit" variant="success" loading={isLoading} className="w-full sm:w-auto">
             Создать заказ
           </Button>
         </div>

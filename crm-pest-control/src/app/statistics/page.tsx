@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DailyStats } from '@/lib/api';
 
 type PeriodMode = 'month' | 'custom';
+type MobileTab = 'table' | 'summary';
 
 function StatisticsContent() {
   const router = useRouter();
@@ -20,6 +21,7 @@ function StatisticsContent() {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('table');
   
   const [localAdSpend, setLocalAdSpend] = useState<Record<string, string>>({});
   const initializedRef = useRef(false);
@@ -32,6 +34,11 @@ function StatisticsContent() {
   const months = [
     'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+  ];
+  
+  const monthsShort = [
+    'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+    'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'
   ];
 
   useEffect(() => {
@@ -95,19 +102,6 @@ function StatisticsContent() {
     }
   }, [localAdSpend, updateAdSpend]);
 
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (dirtyFieldsRef.current.size > 0) {
-        saveAllDirtyFields();
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [saveAllDirtyFields]);
-
   const handleAdSpendChange = (date: string, value: string) => {
     const cleanValue = value.replace(/[^\d]/g, '');
     setLocalAdSpend(prev => ({ ...prev, [date]: cleanValue }));
@@ -148,33 +142,12 @@ function StatisticsContent() {
     router.push('/login');
   };
 
-  const setQuickPeriod = (type: 'today' | 'week') => {
-    const now = new Date();
-    let start: Date;
-    let end: Date = now;
-
-    switch (type) {
-      case 'today':
-        start = now;
-        end = now;
-        break;
-      case 'week':
-        start = new Date(now);
-        start.setDate(now.getDate() - 7);
-        break;
-    }
-
-    setCustomStart(start.toISOString().split('T')[0]);
-    setCustomEnd(end.toISOString().split('T')[0]);
-    setPeriodMode('custom');
-  };
-
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="relative">
-          <div className="w-16 h-16 rounded-full border-4 border-gray-200"></div>
-          <div className="absolute top-0 left-0 w-16 h-16 rounded-full border-4 border-green-500 border-t-transparent animate-spin"></div>
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 border-gray-200"></div>
+          <div className="absolute top-0 left-0 w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 border-green-500 border-t-transparent animate-spin"></div>
         </div>
       </div>
     );
@@ -230,14 +203,11 @@ function StatisticsContent() {
     return day.cashDesk - adSpend;
   };
 
-  const hasDirtyFields = dirtyFieldsRef.current.size > 0;
-
   const formatDisplayDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
     return date.toLocaleDateString('ru-RU', { 
       day: '2-digit', 
       month: '2-digit',
-      year: periodMode === 'custom' ? '2-digit' : undefined
     });
   };
 
@@ -252,13 +222,11 @@ function StatisticsContent() {
     return dateStr === today;
   };
 
-  const hasData = totals.primaryCount > 0 || totals.secondaryCount > 0 || totals.totalSum > 0;
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-        <div className="max-w-full mx-auto px-6 py-4">
+    <div className="min-h-screen bg-gray-50 pb-4">
+      {/* Header - Desktop */}
+      <header className="hidden sm:block bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div className="max-w-full mx-auto px-4 lg:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -293,12 +261,6 @@ function StatisticsContent() {
                     Сохранение...
                   </div>
                 )}
-                {hasDirtyFields && !isSaving && (
-                  <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full">
-                    <div className="w-2 h-2 rounded-full bg-amber-500"></div>
-                    Несохранённые изменения
-                  </div>
-                )}
               </div>
             </div>
             
@@ -315,29 +277,65 @@ function StatisticsContent() {
         </div>
       </header>
 
-      {/* Period Selector */}
-      <div className="bg-white border-b border-gray-100 px-6 py-4">
-        <div className="flex items-center gap-6 flex-wrap">
+      {/* Header - Mobile */}
+      <header className="sm:hidden bg-white border-b border-gray-200 sticky top-0 z-30 safe-top">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleBack}
+                className="p-2 -ml-2 rounded-lg text-gray-500 active:bg-gray-100"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📊</span>
+                <span className="font-semibold text-gray-900">Статистика</span>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {(isLoading || isSaving) && (
+                <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+              )}
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg text-gray-500 active:bg-red-50 active:text-red-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Period Selector - Desktop */}
+      <div className="hidden sm:block bg-white border-b border-gray-100 px-4 lg:px-6 py-4">
+        <div className="flex items-center gap-4 lg:gap-6 flex-wrap">
           <div className="flex rounded-xl bg-gray-100 p-1">
             <button
               onClick={() => setPeriodMode('month')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 periodMode === 'month' 
                   ? 'bg-white text-gray-900 shadow-sm' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              📅 По месяцам
+              📅 Месяц
             </button>
             <button
               onClick={() => setPeriodMode('custom')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 periodMode === 'custom' 
                   ? 'bg-white text-gray-900 shadow-sm' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              📆 Произвольный период
+              📆 Период
             </button>
           </div>
 
@@ -352,8 +350,8 @@ function StatisticsContent() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <div className="min-w-[180px] text-center">
-                <span className="text-lg font-semibold text-gray-900">
+              <div className="min-w-[140px] lg:min-w-[180px] text-center">
+                <span className="text-base lg:text-lg font-semibold text-gray-900">
                   {months[month - 1]} {year}
                 </span>
               </div>
@@ -370,72 +368,157 @@ function StatisticsContent() {
                 onClick={() => setCurrentDate(new Date())}
                 className="ml-2 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
               >
-                Текущий месяц
+                Сейчас
               </button>
             </div>
           ) : (
-            <>
-              {/* ✅ Улучшенные стили для выбора дат */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">С</span>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                      className="w-44 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900
-                               transition-all duration-200 cursor-pointer
-                               hover:border-gray-300
-                               focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">по</span>
-                  <div className="relative">
-                    <input
-                      type="date"
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                      className="w-44 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900
-                               transition-all duration-200 cursor-pointer
-                               hover:border-gray-300
-                               focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
-                    />
-                  </div>
-                </div>
-                <Button onClick={handleApplyPeriod} size="sm" variant="success" disabled={isLoading}>
-                  Применить
-                </Button>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">С</span>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                />
               </div>
-              <div className="flex items-center gap-2 border-l border-gray-200 pl-6">
-                <span className="text-sm text-gray-500">Быстрый выбор:</span>
-                <button
-                  onClick={() => setQuickPeriod('today')}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 hover:text-gray-900 transition-colors"
-                >
-                  Сегодня
-                </button>
-                <button
-                  onClick={() => setQuickPeriod('week')}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 hover:text-gray-900 transition-colors"
-                >
-                  7 дней
-                </button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">по</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                />
               </div>
-            </>
+              <Button onClick={handleApplyPeriod} size="sm" variant="success" disabled={isLoading}>
+                Применить
+              </Button>
+            </div>
           )}
         </div>
       </div>
 
+      {/* Period Selector - Mobile */}
+      <div className="sm:hidden bg-white border-b border-gray-100 px-4 py-3 space-y-3">
+        {/* Mode toggle */}
+        <div className="flex rounded-xl bg-gray-100 p-1">
+          <button
+            onClick={() => setPeriodMode('month')}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+              periodMode === 'month' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600'
+            }`}
+          >
+            📅 Месяц
+          </button>
+          <button
+            onClick={() => setPeriodMode('custom')}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+              periodMode === 'custom' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600'
+            }`}
+          >
+            📆 Период
+          </button>
+        </div>
+
+        {periodMode === 'month' ? (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => changeMonth(-1)}
+              disabled={isSaving}
+              className="p-2 rounded-lg text-gray-500 active:bg-gray-100"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={() => setCurrentDate(new Date())}
+              className="text-center"
+            >
+              <span className="text-base font-semibold text-gray-900">
+                {monthsShort[month - 1]} {year}
+              </span>
+            </button>
+            
+            <button
+              onClick={() => changeMonth(1)}
+              disabled={isSaving}
+              className="p-2 rounded-lg text-gray-500 active:bg-gray-100"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">С</label>
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1 block">По</label>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                />
+              </div>
+            </div>
+            <Button onClick={handleApplyPeriod} variant="success" className="w-full" disabled={isLoading}>
+              Применить
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile Tab Switcher */}
+      <div className="sm:hidden bg-white border-b border-gray-100 px-4 py-2">
+        <div className="flex rounded-lg bg-gray-100 p-1">
+          <button
+            onClick={() => setMobileTab('table')}
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+              mobileTab === 'table' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600'
+            }`}
+          >
+            📋 Таблица
+          </button>
+          <button
+            onClick={() => setMobileTab('summary')}
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+              mobileTab === 'summary' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600'
+            }`}
+          >
+            📈 Итоги
+          </button>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <main className="p-6">
-        <div className="grid grid-cols-12 gap-6">
+      <main className="p-4 lg:p-6">
+        {/* Desktop Layout */}
+        <div className="hidden sm:grid grid-cols-12 gap-4 lg:gap-6">
           {/* Daily Table */}
-          <div className="col-span-8">
+          <div className="col-span-12 lg:col-span-8">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div className="px-4 lg:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="font-semibold text-gray-900 flex items-center gap-2">
                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -449,25 +532,23 @@ function StatisticsContent() {
                 <table className="w-full">
                   <thead className="bg-gray-50 sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Дата</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 lg:px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Дата</th>
+                      <th className="px-3 lg:px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                         <span className="inline-flex items-center gap-1">
                           <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                          Первич.
+                          1°
                         </span>
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 lg:px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">
                         <span className="inline-flex items-center gap-1">
                           <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-                          Повтор.
+                          2°
                         </span>
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Σ Первич.</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Σ Повтор.</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Всего</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">В кассу</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Расход РК</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">ЧП</th>
+                      <th className="px-3 lg:px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Всего</th>
+                      <th className="px-3 lg:px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Касса</th>
+                      <th className="px-3 lg:px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Реклама</th>
+                      <th className="px-3 lg:px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">ЧП</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -486,7 +567,7 @@ function StatisticsContent() {
                             ${dayHasData ? 'hover:bg-gray-50' : ''}
                           `}
                         >
-                          <td className="px-4 py-3">
+                          <td className="px-3 lg:px-4 py-3">
                             <div className="flex items-center gap-2">
                               <span className={`text-sm font-medium ${isToday(day.date) ? 'text-blue-600' : 'text-gray-900'}`}>
                                 {formatDisplayDate(day.date)}
@@ -498,7 +579,7 @@ function StatisticsContent() {
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 lg:px-4 py-3 text-center">
                             {day.primaryCount > 0 ? (
                               <span className="inline-flex items-center justify-center w-7 h-7 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
                                 {day.primaryCount}
@@ -507,7 +588,7 @@ function StatisticsContent() {
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-3 lg:px-4 py-3 text-center">
                             {day.secondaryCount > 0 ? (
                               <span className="inline-flex items-center justify-center w-7 h-7 bg-amber-100 text-amber-700 rounded-lg text-sm font-medium">
                                 {day.secondaryCount}
@@ -516,41 +597,27 @@ function StatisticsContent() {
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right">
-                            {day.primarySum > 0 ? (
-                              <span className="text-sm font-medium text-gray-900">{day.primarySum.toLocaleString()} ₽</span>
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {day.secondarySum > 0 ? (
-                              <span className="text-sm font-medium text-gray-900">{day.secondarySum.toLocaleString()} ₽</span>
-                            ) : (
-                              <span className="text-gray-300">—</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 lg:px-4 py-3 text-right">
                             {day.totalSum > 0 ? (
-                              <span className="text-sm font-bold text-gray-900">{day.totalSum.toLocaleString()} ₽</span>
+                              <span className="text-sm font-bold text-gray-900">{day.totalSum.toLocaleString()}</span>
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 lg:px-4 py-3 text-right">
                             {day.cashDesk > 0 ? (
-                              <span className="text-sm font-medium text-green-600">{day.cashDesk.toLocaleString()} ₽</span>
+                              <span className="text-sm font-medium text-green-600">{day.cashDesk.toLocaleString()}</span>
                             ) : (
                               <span className="text-gray-300">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 lg:px-4 py-3">
                             <input
                               type="text"
                               inputMode="numeric"
                               pattern="[0-9]*"
                               className={`
-                                w-24 px-3 py-1.5 text-right text-sm rounded-lg border transition-all
+                                w-20 lg:w-24 px-2 lg:px-3 py-1.5 text-right text-sm rounded-lg border transition-all
                                 focus:outline-none focus:ring-2
                                 ${isDirty 
                                   ? 'border-orange-300 bg-orange-50 focus:ring-orange-500/20 focus:border-orange-500' 
@@ -563,14 +630,14 @@ function StatisticsContent() {
                               placeholder="0"
                             />
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 lg:px-4 py-3 text-right">
                             <span className={`
                               text-sm font-bold px-2 py-1 rounded-lg
                               ${dayNetProfit > 0 ? 'text-green-700 bg-green-50' : ''}
                               ${dayNetProfit < 0 ? 'text-red-700 bg-red-50' : ''}
                               ${dayNetProfit === 0 ? 'text-gray-400' : ''}
                             `}>
-                              {dayNetProfit !== 0 ? `${dayNetProfit > 0 ? '+' : ''}${dayNetProfit.toLocaleString()} ₽` : '—'}
+                              {dayNetProfit !== 0 ? `${dayNetProfit > 0 ? '+' : ''}${dayNetProfit.toLocaleString()}` : '—'}
                             </span>
                           </td>
                         </tr>
@@ -581,53 +648,29 @@ function StatisticsContent() {
               </div>
               
               {/* Footer с итогами */}
-              <div className="border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-700">ИТОГО за период</span>
-                    {!hasData && (
-                      <span className="text-xs text-gray-400">(нет данных)</span>
-                    )}
-                  </div>
+              <div className="border-t border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 lg:px-4 lg:py-4">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+                  <span className="text-sm font-semibold text-gray-700">ИТОГО</span>
                   
-                  <div className="flex items-center gap-6">
-                    {/* Заявки */}
+                  <div className="flex flex-wrap items-center gap-3 lg:gap-6">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                        <span className="text-sm text-gray-600">Первичные:</span>
                         <span className="text-sm font-bold text-gray-900">{totals.primaryCount}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-                        <span className="text-sm text-gray-600">Повторные:</span>
                         <span className="text-sm font-bold text-gray-900">{totals.secondaryCount}</span>
                       </div>
                     </div>
                     
-                    <div className="w-px h-6 bg-gray-300"></div>
-                    
-                    {/* Суммы */}
-                    <div className="flex items-center gap-4">
-                      <div className="text-sm">
-                        <span className="text-gray-600">Выручка: </span>
-                        <span className="font-bold text-gray-900">{totals.totalSum.toLocaleString()} ₽</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-gray-600">В кассу: </span>
-                        <span className="font-bold text-green-600">{totals.cashDesk.toLocaleString()} ₽</span>
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-gray-600">Реклама: </span>
-                        <span className="font-bold text-red-600">{totals.adSpend.toLocaleString()} ₽</span>
-                      </div>
+                    <div className="text-sm">
+                      <span className="text-gray-600">Касса: </span>
+                      <span className="font-bold text-green-600">{totals.cashDesk.toLocaleString()} ₽</span>
                     </div>
                     
-                    <div className="w-px h-6 bg-gray-300"></div>
-                    
-                    {/* Чистая прибыль */}
                     <div className={`
-                      px-4 py-2 rounded-xl font-bold
+                      px-3 py-1.5 rounded-lg font-bold text-sm
                       ${totals.netProfit > 0 ? 'bg-green-100 text-green-700' : ''}
                       ${totals.netProfit < 0 ? 'bg-red-100 text-red-700' : ''}
                       ${totals.netProfit === 0 ? 'bg-gray-200 text-gray-600' : ''}
@@ -640,47 +683,24 @@ function StatisticsContent() {
             </div>
           </div>
 
-          {/* Right Sidebar */}
-          <div className="col-span-4 space-y-6">
-            {periodMode === 'custom' && statistics?.period && (
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-blue-500/20">
-                <div className="flex items-center gap-2 mb-3">
-                  <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span className="font-medium">Выбранный период</span>
-                </div>
-                <div className="text-2xl font-bold mb-1">
-                  {new Date(statistics.period.startDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} — {new Date(statistics.period.endDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                </div>
-                <div className="text-blue-100 text-sm">
-                  {daily.length} дней в периоде
-                </div>
-              </div>
-            )}
-
+          {/* Right Sidebar - Desktop */}
+          <div className="col-span-12 lg:col-span-4 space-y-4 lg:space-y-6">
             {/* Key Metrics */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="grid grid-cols-2 gap-3 lg:gap-4">
+              <div className="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-5 border border-gray-100 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-500 mb-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <span className="text-sm font-medium">Всего заявок</span>
+                  <span className="text-sm font-medium">Заявок</span>
                 </div>
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-2xl lg:text-3xl font-bold text-gray-900">
                   {totals.primaryCount + totals.secondaryCount}
                 </div>
               </div>
               
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-xl lg:rounded-2xl p-4 lg:p-5 border border-gray-100 shadow-sm">
                 <div className="flex items-center gap-2 text-gray-500 mb-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  <span className="text-sm font-medium">Средний чек</span>
+                  <span className="text-sm font-medium">Ср. чек</span>
                 </div>
-                <div className="text-3xl font-bold text-gray-900">
+                <div className="text-2xl lg:text-3xl font-bold text-gray-900">
                   {(totals.primaryCount + totals.secondaryCount) 
                     ? Math.round(totals.totalSum / (totals.primaryCount + totals.secondaryCount)).toLocaleString() 
                     : 0} ₽
@@ -689,65 +709,225 @@ function StatisticsContent() {
             </div>
 
             {/* Unit Economics */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                  Юнит-экономика
-                </h3>
+            <div className="bg-white rounded-xl lg:rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-4 lg:px-5 py-3 lg:py-4 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900">Юнит-экономика</h3>
               </div>
-              <div className="p-5 space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-gray-600 flex items-center gap-2">
+              <div className="p-4 lg:p-5 space-y-3">
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-600">Выручка</span>
+                  <span className="font-semibold text-gray-900">{totals.totalSum.toLocaleString()} ₽</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-600">Сдано в кассу</span>
+                  <span className="font-semibold text-green-600">+{totals.cashDesk.toLocaleString()} ₽</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-600">Реклама</span>
+                  <span className="font-semibold text-red-600">−{totals.adSpend.toLocaleString()} ₽</span>
+                </div>
+                
+                <div className={`
+                  -mx-4 lg:-mx-5 -mb-4 lg:-mb-5 px-4 lg:px-5 py-3 lg:py-4 mt-4
+                  ${totals.netProfit >= 0 ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-red-500 to-rose-600'}
+                `}>
+                  <div className="flex items-center justify-between text-white">
+                    <span className="font-medium">Чистая прибыль</span>
+                    <span className="text-xl lg:text-2xl font-bold">
+                      {totals.netProfit >= 0 ? '+' : ''}{totals.netProfit.toLocaleString()} ₽
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Layout */}
+        <div className="sm:hidden">
+          {mobileTab === 'table' ? (
+            /* Mobile Table */
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="overflow-auto touch-scroll" style={{ maxHeight: 'calc(100vh - 320px)' }}>
+                <table className="w-full min-w-[400px]">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">Дата</th>
+                      <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">
+                        <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
+                      </th>
+                      <th className="px-2 py-2.5 text-center text-xs font-semibold text-gray-500">
+                        <span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span>
+                      </th>
+                      <th className="px-2 py-2.5 text-right text-xs font-semibold text-gray-500">Касса</th>
+                      <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-500">Рекл.</th>
+                      <th className="px-3 py-2.5 text-right text-xs font-semibold text-gray-500">ЧП</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {daily.map((day, i) => {
+                      const dayNetProfit = getDayNetProfit(day);
+                      const isDirty = dirtyFieldsRef.current.has(day.date);
+                      
+                      return (
+                        <tr 
+                          key={i} 
+                          className={`
+                            ${isToday(day.date) ? 'bg-blue-50/50' : ''}
+                            ${isWeekend(day.date) && !isToday(day.date) ? 'bg-gray-50/30' : ''}
+                          `}
+                        >
+                          <td className="px-3 py-2.5">
+                            <span className={`text-sm font-medium ${isToday(day.date) ? 'text-blue-600' : 'text-gray-900'}`}>
+                              {formatDisplayDate(day.date)}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2.5 text-center">
+                            {day.primaryCount > 0 ? (
+                              <span className="text-sm font-medium text-green-700">{day.primaryCount}</span>
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2.5 text-center">
+                            {day.secondaryCount > 0 ? (
+                              <span className="text-sm font-medium text-amber-700">{day.secondaryCount}</span>
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-2.5 text-right">
+                            {day.cashDesk > 0 ? (
+                              <span className="text-sm font-medium text-green-600">{(day.cashDesk / 1000).toFixed(0)}k</span>
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              className={`
+                                w-16 px-2 py-1 text-right text-sm rounded-lg border transition-all
+                                focus:outline-none
+                                ${isDirty 
+                                  ? 'border-orange-300 bg-orange-50' 
+                                  : 'border-gray-200 bg-white'
+                                }
+                              `}
+                              value={localAdSpend[day.date] ?? ''}
+                              onChange={(e) => handleAdSpendChange(day.date, e.target.value)}
+                              onBlur={() => handleAdSpendBlur(day.date)}
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 text-right">
+                            <span className={`
+                              text-sm font-bold
+                              ${dayNetProfit > 0 ? 'text-green-700' : ''}
+                              ${dayNetProfit < 0 ? 'text-red-700' : ''}
+                              ${dayNetProfit === 0 ? 'text-gray-400' : ''}
+                            `}>
+                              {dayNetProfit !== 0 ? `${dayNetProfit > 0 ? '+' : ''}${(dayNetProfit / 1000).toFixed(0)}k` : '—'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Mobile Footer */}
+              <div className="border-t border-gray-200 bg-gray-50 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
                       <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                      Первичные заявки
-                    </span>
-                    <span className="font-semibold text-gray-900">{totals.primaryCount}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-gray-600 flex items-center gap-2">
+                      <span className="text-sm font-bold">{totals.primaryCount}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
                       <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-                      Повторные заявки
+                      <span className="text-sm font-bold">{totals.secondaryCount}</span>
+                    </div>
+                  </div>
+                  <div className={`
+                    px-3 py-1 rounded-lg font-bold text-sm
+                    ${totals.netProfit > 0 ? 'bg-green-100 text-green-700' : ''}
+                    ${totals.netProfit < 0 ? 'bg-red-100 text-red-700' : ''}
+                  `}>
+                    ЧП: {totals.netProfit >= 0 ? '+' : ''}{(totals.netProfit / 1000).toFixed(0)}k ₽
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Mobile Summary */
+            <div className="space-y-4">
+              {/* Key Metrics */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                  <div className="text-sm text-gray-500 mb-1">Всего заявок</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {totals.primaryCount + totals.secondaryCount}
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 text-xs">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                      {totals.primaryCount}
                     </span>
-                    <span className="font-semibold text-gray-900">{totals.secondaryCount}</span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                      {totals.secondaryCount}
+                    </span>
                   </div>
                 </div>
                 
-                <div className="h-px bg-gray-100"></div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-gray-600">Сумма первичных</span>
-                    <span className="font-semibold text-gray-900">{totals.primarySum.toLocaleString()} ₽</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-gray-600">Сумма повторных</span>
-                    <span className="font-semibold text-gray-900">{totals.secondarySum.toLocaleString()} ₽</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 bg-gray-50 -mx-5 px-5 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Общая выручка</span>
-                    <span className="font-bold text-gray-900">{totals.totalSum.toLocaleString()} ₽</span>
+                <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                  <div className="text-sm text-gray-500 mb-1">Средний чек</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {(totals.primaryCount + totals.secondaryCount) 
+                      ? Math.round(totals.totalSum / (totals.primaryCount + totals.secondaryCount)).toLocaleString() 
+                      : 0} ₽
                   </div>
                 </div>
-                
-                <div className="h-px bg-gray-100"></div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between py-2">
+              </div>
+
+              {/* Financial Summary */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <h3 className="font-semibold text-gray-900">Финансы</h3>
+                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Общая выручка</span>
+                    <span className="font-semibold text-gray-900">{totals.totalSum.toLocaleString()} ₽</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Первичные</span>
+                    <span className="font-medium text-gray-700">{totals.primarySum.toLocaleString()} ₽</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Повторные</span>
+                    <span className="font-medium text-gray-700">{totals.secondarySum.toLocaleString()} ₽</span>
+                  </div>
+                  
+                  <div className="h-px bg-gray-100 my-2"></div>
+                  
+                  <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Сдано в кассу</span>
                     <span className="font-semibold text-green-600">+{totals.cashDesk.toLocaleString()} ₽</span>
                   </div>
-                  <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Расход на рекламу</span>
                     <span className="font-semibold text-red-600">−{totals.adSpend.toLocaleString()} ₽</span>
                   </div>
                 </div>
                 
+                {/* Net Profit */}
                 <div className={`
-                  -mx-5 -mb-5 px-5 py-4 mt-4
+                  px-4 py-4
                   ${totals.netProfit >= 0 ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-red-500 to-rose-600'}
                 `}>
                   <div className="flex items-center justify-between text-white">
@@ -758,133 +938,43 @@ function StatisticsContent() {
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Additional metrics */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  Аналитика
-                </h3>
-              </div>
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-sm text-gray-600">Маржинальность</span>
-                  <span className={`font-semibold ${
-                    totals.totalSum && (totals.netProfit / totals.totalSum) >= 0.2 ? 'text-green-600' : 'text-amber-600'
-                  }`}>
-                    {totals.totalSum ? Math.round((totals.netProfit / totals.totalSum) * 100) : 0}%
-                  </span>
+              {/* Analytics */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <h3 className="font-semibold text-gray-900">Аналитика</h3>
                 </div>
-                {totals.adSpend > 0 && totals.primaryCount > 0 && (
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-gray-600">CPL (цена лида)</span>
-                    <span className="font-semibold text-gray-900">
-                      {Math.round(totals.adSpend / totals.primaryCount).toLocaleString()} ₽
-                    </span>
-                  </div>
-                )}
-                {totals.adSpend > 0 && (
-                  <div className="flex items-center justify-between py-2">
-                    <span className="text-sm text-gray-600">ROAS</span>
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Маржинальность</span>
                     <span className={`font-semibold ${
-                      (totals.totalSum / totals.adSpend) >= 3 ? 'text-green-600' : 'text-amber-600'
+                      totals.totalSum && (totals.netProfit / totals.totalSum) >= 0.2 ? 'text-green-600' : 'text-amber-600'
                     }`}>
-                      {(totals.totalSum / totals.adSpend).toFixed(1)}x
+                      {totals.totalSum ? Math.round((totals.netProfit / totals.totalSum) * 100) : 0}%
                     </span>
                   </div>
-                )}
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-sm text-gray-600">Конверсия в повтор</span>
-                  <span className="font-semibold text-gray-900">
-                    {totals.primaryCount ? Math.round((totals.secondaryCount / totals.primaryCount) * 100) : 0}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Plan vs Fact */}
-            {periodMode === 'month' && (
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    План / Факт
-                  </h3>
-                </div>
-                <div className="p-5">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-xs text-gray-500">
-                        <th className="text-left py-2 font-medium">Показатель</th>
-                        <th className="text-right py-2 font-medium">План</th>
-                        <th className="text-right py-2 font-medium">Факт</th>
-                        <th className="text-right py-2 font-medium">%</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm">
-                      {[
-                        { label: 'Первичные', plan: plan.primaryCount, fact: totals.primaryCount, isCount: true },
-                        { label: 'Повторные', plan: plan.secondaryCount, fact: totals.secondaryCount, isCount: true },
-                        { label: 'Выручка', plan: plan.totalSum, fact: totals.totalSum },
-                        { label: 'В кассу', plan: plan.cashDesk, fact: totals.cashDesk },
-                        { label: 'Чистая прибыль', plan: plan.netProfit, fact: totals.netProfit, isBold: true },
-                      ].map((row, i) => {
-                        const percent = getPercent(row.fact, row.plan);
-                        return (
-                          <tr key={i} className={`border-t border-gray-50 ${row.isBold ? 'font-semibold' : ''}`}>
-                            <td className="py-3 text-gray-700">{row.label}</td>
-                            <td className="py-3 text-right text-gray-400">
-                              {row.isCount ? row.plan : `${(row.plan / 1000).toFixed(0)}k`}
-                            </td>
-                            <td className="py-3 text-right text-gray-900">
-                              {row.isCount ? row.fact : `${(row.fact / 1000).toFixed(0)}k`}
-                            </td>
-                            <td className="py-3 text-right">
-                              <span className={`
-                                inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                                ${percent >= 100 ? 'bg-green-100 text-green-700' : ''}
-                                ${percent >= 70 && percent < 100 ? 'bg-amber-100 text-amber-700' : ''}
-                                ${percent < 70 ? 'bg-red-100 text-red-700' : ''}
-                              `}>
-                                {percent}%
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-gray-600">Выполнение плана по прибыли</span>
-                      <span className={`font-semibold ${
-                        getPercent(totals.netProfit, plan.netProfit) >= 100 ? 'text-green-600' : 'text-amber-600'
-                      }`}>
-                        {getPercent(totals.netProfit, plan.netProfit)}%
+                  {totals.adSpend > 0 && totals.primaryCount > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">CPL (цена лида)</span>
+                      <span className="font-semibold text-gray-900">
+                        {Math.round(totals.adSpend / totals.primaryCount).toLocaleString()} ₽
                       </span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          getPercent(totals.netProfit, plan.netProfit) >= 100 
-                            ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
-                            : 'bg-gradient-to-r from-amber-500 to-orange-500'
-                        }`}
-                        style={{ width: `${Math.min(getPercent(totals.netProfit, plan.netProfit), 100)}%` }}
-                      ></div>
+                  )}
+                  {totals.adSpend > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">ROAS</span>
+                      <span className={`font-semibold ${
+                        (totals.totalSum / totals.adSpend) >= 3 ? 'text-green-600' : 'text-amber-600'
+                      }`}>
+                        {(totals.totalSum / totals.adSpend).toFixed(1)}x
+                      </span>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

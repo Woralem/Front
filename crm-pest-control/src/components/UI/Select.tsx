@@ -24,8 +24,9 @@ export default function Select({
       <div className="relative">
         <select
           className={`
-            w-full px-4 py-2.5 bg-white border rounded-xl
+            w-full px-4 py-3 sm:py-2.5 bg-white border rounded-xl
             text-gray-900 appearance-none cursor-pointer
+            text-base sm:text-sm
             transition-all duration-200
             focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500
             disabled:bg-gray-50 disabled:text-gray-500

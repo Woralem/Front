@@ -8,6 +8,7 @@ import DashboardGrid from '@/components/Dashboard/DashboardGrid';
 import CreateOrderModal from '@/components/Orders/CreateOrderModal';
 import OrderDetailsModal from '@/components/Orders/OrderDetailsModal';
 import SearchModal from '@/components/Search/SearchModal';
+import MobileNavbar from '@/components/UI/MobileNavbar';
 import { useOrderStore } from '@/store/orderStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { Order } from '@/types';
@@ -22,6 +23,7 @@ function DashboardContent() {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<{ date: string; time: string } | null>(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -31,6 +33,11 @@ function DashboardContent() {
   const months = [
     'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+  ];
+  
+  const monthsShort = [
+    'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+    'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'
   ];
 
   const loadOrders = useCallback(() => {
@@ -80,9 +87,9 @@ function DashboardContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
+    <div className="min-h-screen bg-gray-50 pb-20 sm:pb-0">
+      {/* Desktop Header */}
+      <header className="hidden sm:block bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-full mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Left side */}
@@ -157,8 +164,45 @@ function DashboardContent() {
         </div>
       </header>
 
-      {/* Subheader with navigation */}
-      <div className="bg-white border-b border-gray-100 px-6 py-3">
+      {/* Mobile Header */}
+      <header className="sm:hidden bg-white border-b border-gray-200 sticky top-0 z-30 safe-top">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                <span className="text-base">🐜</span>
+              </div>
+              <span className="font-semibold text-gray-900">CRM</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {isLoading && (
+                <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+              )}
+              <button
+                onClick={loadOrders}
+                disabled={isLoading}
+                className="p-2 rounded-lg text-gray-500 active:bg-gray-100"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg text-gray-500 active:bg-red-50 active:text-red-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Desktop Subheader */}
+      <div className="hidden sm:block bg-white border-b border-gray-100 px-6 py-3">
         <div className="flex items-center justify-between">
           {/* Month navigation */}
           <div className="flex items-center gap-2">
@@ -215,8 +259,60 @@ function DashboardContent() {
         </div>
       </div>
 
+      {/* Mobile Month Navigation */}
+      <div className="sm:hidden bg-white border-b border-gray-100 px-4 py-2">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => changeMonth(-1)}
+            className="p-2 -ml-2 rounded-lg text-gray-500 active:bg-gray-100"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          
+          <button
+            onClick={() => setCurrentDate(new Date())}
+            className="flex-1 text-center"
+          >
+            <span className="text-base font-semibold text-gray-900">
+              {monthsShort[month]} {year}
+            </span>
+          </button>
+          
+          <button
+            onClick={() => changeMonth(1)}
+            className="p-2 -mr-2 rounded-lg text-gray-500 active:bg-gray-100"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        
+        {/* Mobile Stats */}
+        <div className="flex items-center justify-center gap-4 mt-2 pb-1">
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            <span className="text-xs text-gray-600">{stats.primary}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+            <span className="text-xs text-gray-600">{stats.secondary}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+            <span className="text-xs text-gray-600">{stats.completed}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="text-xs text-gray-600">{stats.cancelled}</span>
+          </div>
+        </div>
+      </div>
+
       {/* Main content */}
-      <main className="p-6">
+      <main className="p-4 sm:p-6">
         <DashboardGrid
           dates={dates}
           orders={orders}
@@ -224,6 +320,13 @@ function DashboardContent() {
           onSlotClick={handleSlotClick}
         />
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileNavbar
+        onCreateClick={() => { setSelectedSlot(null); setShowCreateModal(true); }}
+        onSearchClick={() => setShowSearchModal(true)}
+        onStatsClick={() => router.push('/statistics')}
+      />
 
       {/* Modals */}
       <CreateOrderModal
